@@ -1,0 +1,26 @@
+# Node
+node_modules/
+
+# Electron build
+dist/
+out/
+build/
+
+# Python
+__pycache__/
+*.pyc
+
+# VSCode
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Binary files
+*.exe
+*.dll
+*.bin

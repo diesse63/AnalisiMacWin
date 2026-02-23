@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analisi Mediche Manager</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .container { display: flex; gap: 20px; }
+        .upload-section { border: 1px solid #ccc; padding: 20px; width: 100%; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .main-panel {
+            border: 1px solid #ccc;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 900px;
+            margin: 40px auto;
+            box-sizing: border-box;
+            background: #fafbfc;
+            box-shadow: 0 2px 12px #0001;
+        }
+        .upload-panel {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #fff;
+            z-index: 1000;
+            padding: 40px 5vw;
+            overflow-y: auto;
+            box-shadow: 0 0 0 100vw #0005;
+        }
+        .upload-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #refertiTable, #tempTable { width: 100%; border-collapse: collapse; }
+        #refertiTable th, #refertiTable td, #tempTable th, #tempTable td { border: 1px solid #ddd; padding: 8px; }
+        #refertiTable th, #tempTable th { background: #f2f2f2; }
+        .not-archived-row { background: #ffe7e7; }
+    </style>
+</head>
+<body>
+
+
+    <h1>Gestione Referti</h1>
+    <div style="display:flex; gap:20px; margin-bottom:20px;">
+        <button id="gestioneRefertiBtn" onclick="apriGestioneReferti()">Gestione Referti</button>
+        <button id="openUploadBtn" onclick="toggleUploadPanel()">Nuovo Referto</button>
+    </div>
+
+    <div id="gestioneRefertiPanel" class="upload-panel" style="display:none;z-index:2000;">
+        <div class="upload-panel-header">
+            <h2>Archivio Referti</h2>
+            <button onclick="chiudiGestioneReferti()">Chiudi</button>
+        </div>
+        <table id="archivioRefertiTable" style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Paziente</th>
+                    <th>Accettazione</th>
+                    <th>PDF</th>
+                    <th>Azioni</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="main-panel">
+        <fieldset style="margin-bottom:30px">
+            <legend>Visualizza Referti</legend>
+            <div style="display:flex; flex-direction:row; gap:20px; margin-bottom:20px;">
+                <label>Paziente:
+                    <select id="dropdownPazienti"></select>
+                </label>
+                <label>Data Referto:
+                    <select id="dropdownDateReferti"></select>
+                </label>
+            </div>
+            <div style="margin-bottom:15px;">
+                <span>Numero Referto: <span id="labelNumeroReferto"></span></span>
+            </div>
+            <div style="margin-bottom:15px;">
+                <label>Note:<br>
+                    <textarea id="noteInput" style="width:100%;min-height:60px;max-width:600px;"></textarea>
+                </label>
+            </div>
+            <div style="margin-bottom:30px;">
+                <h3>Risultati Esami</h3>
+                <table id="tabellaEsami" style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th>Esame</th>
+                            <th>Risultato</th>
+                            <th>UM</th>
+                            <th>Valori di riferimento</th>
+                            <th>Semaforo</th>
+                            <th>Precedente</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div style="margin-bottom:30px;">
+                <h3>Grafico Esami</h3>
+                <div id="graficoPreview" style="margin-top:10px; text-align:center;"></div>
+            </div>
+        </fieldset>
+        <div id="uploadPanel" style="border:1px solid #ccc; background:#f9f9f9; padding:24px; margin-top:10px; display:none;">
+            <div class="upload-panel-header">
+                <h2 style="display:none;">Acquisizione Nuovo Referto</h2>
+            </div>
+            <div id="acquisizioneHeader" style="margin-bottom:20px;display:none;">
+                <b>Paziente:</b> <span id="acqPaziente"></span> &nbsp;|
+                <b>Numero Referto:</b> <span id="acqNumero"></span> &nbsp;|
+                <b>Data Referto:</b> <span id="acqData"></span> &nbsp;|
+                <b>Note:</b> <input id="acqNote" type="text" style="width:300px;">
+            </div>
+            <input type="file" id="pdfInput" accept="application/pdf">
+            <button onclick="uploadFile()">Carica PDF</button>
+            <span id="statusMsg" style="margin-left:10px;color:#888"></span>
+            <div id="tempTableSection" style="display:none;margin-top:20px">
+                <h3>Tabella dati estratti</h3>
+                <select id="tempTableFiltro">
+                    <option value="tutte">Tutte</option>
+                    <option value="corrette">Corrette</option>
+                    <option value="errate">Errate</option>
+                </select>
+                <table id="tempTable" border="1" style="margin-top:10px">
+                    <thead>
+                        <tr>
+                            <th>Esame</th>
+                            <th>Risultato</th>
+                            <th>UM</th>
+                            <th>Rif</th>
+                            <th>Anomalia</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <button id="saveTempBtn" style="margin-top:20px;display:none;" onclick="confermaInserimento()">Salva Modifiche</button>
+            </div>
+            <div id="graficoPreviewAcquisizione" style="margin-top:20px"></div>
+        </div>
+    </div>
+
+    <style>
+        .main-panel {
+            border: 1px solid #ccc;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 900px;
+            margin: 40px auto;
+            box-sizing: border-box;
+            background: #fafbfc;
+            box-shadow: 0 2px 12px #0001;
+        }
+        .upload-panel {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #fff;
+            z-index: 1000;
+            padding: 40px 5vw;
+            overflow-y: auto;
+            box-shadow: 0 0 0 100vw #0005;
+        }
+        .upload-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #refertiTable, #tempTable { width: 100%; border-collapse: collapse; }
+        #refertiTable th, #refertiTable td, #tempTable th, #tempTable td { border: 1px solid #ddd; padding: 8px; }
+        #refertiTable th, #tempTable th { background: #f2f2f2; }
+        .not-archived-row { background: #ffe7e7; }
+    </style>
+
+    <script>
+                // Collega visibilità uploadPanel al bottone "Nuovo Referto" in main
+                const uploadPanel = document.getElementById('uploadPanel');
+                const openUploadBtn = document.getElementById('openUploadBtn');
+                openUploadBtn.onclick = function() {
+                    if (uploadPanel.style.display === 'none' || uploadPanel.style.display === '') {
+                        uploadPanel.style.display = 'block';
+                        openUploadBtn.textContent = 'Chiudi Acquisizione';
+                    } else {
+                        uploadPanel.style.display = 'none';
+                        openUploadBtn.textContent = 'Nuovo Referto';
+                    }
+                };
+
+                // Mostra/aggiorna tempTableSection dopo upload
+                function mostraTabellaTemporanea(dati) {
+                    const section = document.getElementById('tempTableSection');
+                    const tbody = document.querySelector('#tempTable tbody');
+                    tbody.innerHTML = '';
+                    let filtro = 'tutte';
+                    const filtroElem = document.getElementById('tempTableFiltro');
+                    if (filtroElem) {
+                        filtroElem.onchange = () => mostraTabellaTemporanea(datiTemporanei);
+                        filtro = filtroElem.value;
+                    }
+                    // Protezione: se righeTabellaTemporanea non è array, fallback a []
+                    if (!Array.isArray(window.righeTabellaTemporanea)) {
+                        window.righeTabellaTemporanea = [];
+                    }
+                    let datiFiltrati = [];
+                    if (filtro === 'corrette') {
+                        datiFiltrati = window.righeTabellaTemporanea.filter(r => r.archiviato);
+                    } else if (filtro === 'errate') {
+                        datiFiltrati = window.righeTabellaTemporanea.filter(r => !r.archiviato);
+                    } else {
+                        datiFiltrati = window.righeTabellaTemporanea;
+                    }
+                    datiFiltrati.forEach((row, i) => {
+                        const tr = document.createElement('tr');
+                        if (!row.archiviato) tr.classList.add('not-archived-row');
+                        const semaforo = row.anomalia == 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
+                        tr.innerHTML = `
+                            <td style="text-align:left;" ondblclick="mostraStoricoEsame('${r.esame.replace(/'/g, "\\'")}', '${r.paziente.replace(/'/g, "\\'")}', '${r.um.replace(/'/g, "\\'")}' )">${r.esame}</td>
+                            <td style="text-align:center;">${r.risultato}</td>
+                            <td style="text-align:center;">${r.um}</td>
+                            <td style="text-align:center;">${r.rif}</td>
+                            <td style="text-align:center;">${semaforo}</td>
+                            <td style="text-align:center;color:#888;">${valorePrecedente}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    section.style.display = 'block';
+                    let saveBtn = document.getElementById('saveTempBtn');
+                    if (filtro === 'tutte') {
+                        if (!saveBtn) {
+                            saveBtn = document.createElement('button');
+                            saveBtn.id = 'saveTempBtn';
+                            saveBtn.innerText = 'Salva Modifiche';
+                            saveBtn.style.marginTop = '20px';
+                            saveBtn.onclick = () => confermaInserimento();
+                            section.appendChild(saveBtn);
+                        } else {
+                            saveBtn.style.display = 'inline-block';
+                        }
+                    } else if (saveBtn) {
+                        saveBtn.style.display = 'none';
+                    }
+                }
+        // --- Stato acquisizione ---
+        let datiTemporanei = null;
+        let ultimoFile = null;
+        let anteprimaGraficoAcquisizione = null;
+
+        // --- Funzioni pannello acquisizione ---
+        async function uploadFile() {
+            const input = document.getElementById('pdfInput');
+            if (input.files.length === 0) return alert("Seleziona un file!");
+            const formData = new FormData();
+            formData.append('file', input.files[0]);
+            ultimoFile = input.files[0];
+            try {
+                document.getElementById('statusMsg').innerText = "Analisi in corso...";
+                const res = await fetch(`${API_URL}/upload_preview`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success && data.dati) {
+                    // --- Controllo duplicato ---
+                    if (data.metadata && data.metadata.accettazione) {
+                        const accettazione = data.metadata.accettazione;
+                        if (referti.some(r => r.accettazione === accettazione)) {
+                            document.getElementById('statusMsg').innerText = `Referto N. ${accettazione} già presente in archivio.`;
+                            alert(`Referto N. ${accettazione} già presente in archivio. Per modificare i dati è necessario eliminare il referto esistente e reinserirlo.`);
+                            datiTemporanei = null;
+                            ultimoFile = null;
+                            anteprimaGraficoAcquisizione = null;
+                            document.getElementById('tempTableSection').style.display = 'none';
+                            document.getElementById('graficoPreviewAcquisizione').innerHTML = '';
+                            document.getElementById('acquisizioneHeader').style.display = 'none';
+                            return;
+                        }
+                    }
+                    datiTemporanei = data.dati;
+                    mostraTabellaTemporanea(datiTemporanei);
+                    document.getElementById('statusMsg').innerText = 'Dati estratti, conferma per inserire.';
+                    if (data.image) {
+                        anteprimaGraficoAcquisizione = data.image;
+                        mostraGraficoPreviewAcquisizione(anteprimaGraficoAcquisizione);
+                    } else {
+                        anteprimaGraficoAcquisizione = null;
+                        mostraGraficoPreviewAcquisizione(null);
+                    }
+                    // --- Inizializza righeTabellaTemporanea con _rowid univoco ---
+                    window.righeTabellaTemporanea = data.dati.map((r, idx) => ({...r, _rowid: idx + Math.floor(Math.random()*1000000)}));
+                    mostraTabellaTemporanea();
+                } else {
+                    document.getElementById('statusMsg').innerText = data.message || 'Errore estrazione dati.';
+                    document.getElementById('acquisizioneHeader').style.display = 'none';
+                }
+            } catch (e) {
+                alert("Errore connessione server: " + e);
+                document.getElementById('acquisizioneHeader').style.display = 'none';
+            }
+        }
+
+        function mostraTabellaTemporanea() {
+            const section = document.getElementById('tempTableSection');
+            const tbody = document.querySelector('#tempTable tbody');
+            tbody.innerHTML = '';
+            let filtro = 'tutte';
+            const filtroElem = document.getElementById('tempTableFiltro');
+            if (filtroElem) {
+                filtroElem.onchange = () => mostraTabellaTemporanea();
+                filtro = filtroElem.value;
+            }
+            // Protezione: se righeTabellaTemporanea non è array, fallback a []
+            if (!Array.isArray(window.righeTabellaTemporanea)) {
+                window.righeTabellaTemporanea = [];
+            }
+            let datiFiltrati = [];
+            if (filtro === 'corrette') {
+                datiFiltrati = window.righeTabellaTemporanea.filter(r => r.archiviato);
+            } else if (filtro === 'errate') {
+                datiFiltrati = window.righeTabellaTemporanea.filter(r => !r.archiviato);
+            } else {
+                datiFiltrati = window.righeTabellaTemporanea;
+            }
+            datiFiltrati.forEach((row, i) => {
+                const tr = document.createElement('tr');
+                if (!row.archiviato) tr.classList.add('not-archived-row');
+                const semaforo = row.anomalia == 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
+                tr.innerHTML = `
+                    <td style="text-align:left;" ondblclick="mostraStoricoEsame('${r.esame.replace(/'/g, "\\'")}', '${r.paziente.replace(/'/g, "\\'")}', '${r.um.replace(/'/g, "\\'")}' )">${r.esame}</td>
+                    <td style="text-align:center;">${r.risultato}</td>
+                    <td style="text-align:center;">${r.um}</td>
+                    <td style="text-align:center;">${r.rif}</td>
+                    <td style="text-align:center;">${semaforo}</td>
+                    <td style="text-align:center;color:#888;">${valorePrecedente}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            section.style.display = 'block';
+            let saveBtn = document.getElementById('saveTempBtn');
+            if (filtro === 'tutte') {
+                if (!saveBtn) {
+                    saveBtn = document.createElement('button');
+                    saveBtn.id = 'saveTempBtn';
+                    saveBtn.innerText = 'Salva Modifiche';
+                    saveBtn.style.marginTop = '20px';
+                    saveBtn.onclick = () => confermaInserimento();
+                    section.appendChild(saveBtn);
+                } else {
+                    saveBtn.style.display = 'inline-block';
+                }
+            } else if (saveBtn) {
+                saveBtn.style.display = 'none';
+            }
+        }
+
+        // Inizializza righeTabellaTemporanea dopo upload
+        async function uploadFile() {
+            const input = document.getElementById('pdfInput');
+            if (input.files.length === 0) return alert("Seleziona un file!");
+            const formData = new FormData();
+            formData.append('file', input.files[0]);
+            ultimoFile = input.files[0];
+            try {
+                document.getElementById('statusMsg').innerText = "Analisi in corso...";
+                const res = await fetch(`${API_URL}/upload_preview`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success && data.dati) {
+                    // --- Controllo duplicato ---
+                    if (data.metadata && data.metadata.accettazione) {
+                        const accettazione = data.metadata.accettazione;
+                        if (referti.some(r => r.accettazione === accettazione)) {
+                            document.getElementById('statusMsg').innerText = `Referto N. ${accettazione} già presente in archivio.`;
+                            alert(`Referto N. ${accettazione} già presente in archivio. Per modificare i dati è necessario eliminare il referto esistente e reinserirlo.`);
+                            datiTemporanei = null;
+                            ultimoFile = null;
+                            anteprimaGraficoAcquisizione = null;
+                            document.getElementById('tempTableSection').style.display = 'none';
+                            document.getElementById('graficoPreviewAcquisizione').innerHTML = '';
+                            document.getElementById('acquisizioneHeader').style.display = 'none';
+                            return;
+                        }
+                    }
+                    datiTemporanei = data.dati;
+                    mostraTabellaTemporanea(datiTemporanei);
+                    document.getElementById('statusMsg').innerText = 'Dati estratti, conferma per inserire.';
+                    if (data.image) {
+                        anteprimaGraficoAcquisizione = data.image;
+                        mostraGraficoPreviewAcquisizione(anteprimaGraficoAcquisizione);
+                    } else {
+                        anteprimaGraficoAcquisizione = null;
+                        mostraGraficoPreviewAcquisizione(null);
+                    }
+                    // --- Inizializza righeTabellaTemporanea con _rowid univoco ---
+                    window.righeTabellaTemporanea = data.dati.map((r, idx) => ({...r, _rowid: idx + Math.floor(Math.random()*1000000)}));
+                    mostraTabellaTemporanea();
+                } else {
+                    document.getElementById('statusMsg').innerText = data.message || 'Errore estrazione dati.';
+                    document.getElementById('acquisizioneHeader').style.display = 'none';
+                }
+            } catch (e) {
+                alert("Errore connessione server: " + e);
+                document.getElementById('acquisizioneHeader').style.display = 'none';
+            }
+        }
+
+        // Aggiorna/cancella solo sulle righeTabellaTemporanea globali
+        function aggiornaCampoTempGlobal(rowid, campo, valore) {
+            const idx = window.righeTabellaTemporanea.findIndex(r => r._rowid === rowid);
+            if (idx === -1) return;
+            window.righeTabellaTemporanea[idx][campo] = valore;
+            if (campo === 'rif' || campo === 'risultato') {
+                aggiornaSemaforoTempGlobal(rowid);
+            }
+            mostraTabellaTemporanea();
+        }
+
+        function aggiornaRisultatoTempGlobal(rowid, valore) {
+            const idx = window.righeTabellaTemporanea.findIndex(r => r._rowid === rowid);
+            if (idx === -1) return;
+            window.righeTabellaTemporanea[idx]['risultato'] = valore;
+            aggiornaSemaforoTempGlobal(rowid);
+            mostraTabellaTemporanea();
+        }
+
+        function cancellaRigaTempGlobal(rowid) {
+            const idx = window.righeTabellaTemporanea.findIndex(r => r._rowid === rowid);
+            if (idx === -1) return;
+            window.righeTabellaTemporanea.splice(idx, 1);
+            mostraTabellaTemporanea();
+        }
+
+        function aggiornaSemaforoTempGlobal(rowid) {
+            const idx = window.righeTabellaTemporanea.findIndex(r => r._rowid === rowid);
+            if (idx === -1) return;
+            const rif = window.righeTabellaTemporanea[idx]['rif'];
+            const valore = window.righeTabellaTemporanea[idx]['risultato'];
+            if (rif && /^\[(\d+[\.,]?\d*)-(\d+[\.,]?\d*)\]$/.test(rif)) {
+                const match = rif.match(/^\[(\d+[\.,]?\d*)-(\d+[\.,]?\d*)\]$/);
+                if (match) {
+                    const min = parseFloat(match[1].replace(',', '.'));
+                    const max = parseFloat(match[2].replace(',', '.'));
+                    const val = parseFloat(valore.replace(',', '.'));
+                    if (!isNaN(val) && min <= val && val <= max) {
+                        window.righeTabellaTemporanea[idx]['anomalia'] = 0;
+                    } else {
+                        window.righeTabellaTemporanea[idx]['anomalia'] = 1;
+                    }
+                }
+            }
+        }
+
+        async function confermaInserimento() {
+            if (!window.righeTabellaTemporanea || !ultimoFile) return;
+            let datiDaSalvare = window.righeTabellaTemporanea;
+            if (!datiDaSalvare || datiDaSalvare.length === 0) {
+                alert('Nessuna riga da archiviare.');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', ultimoFile);
+            formData.append('righe', JSON.stringify(datiDaSalvare));
+            const noteVal = document.getElementById('acqNote').value || '';
+            formData.append('note', noteVal);
+            try {
+                document.getElementById('statusMsg').innerText = 'Inserimento in corso...';
+                const res = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('statusMsg').innerText = 'Referto inserito con successo.';
+                    datiTemporanei = null;
+                    ultimoFile = null;
+                    anteprimaGraficoAcquisizione = null;
+                    document.getElementById('tempTableSection').style.display = 'none';
+                    document.getElementById('graficoPreviewAcquisizione').innerHTML = '';
+                    document.getElementById('acquisizioneHeader').style.display = 'none';
+                    await caricaRefertiMain();
+                } else {
+                    document.getElementById('statusMsg').innerText = data.message || 'Errore inserimento.';
+                    if (data.message && data.message.includes('già presente')) {
+                        alert(data.message);
+                    }
+                }
+            } catch (e) {
+                alert('Errore inserimento: ' + e);
+            }
+        }
+
+        window.cancellaRigaTemp = function(idx) {
+            if (!datiTemporanei) return;
+            datiTemporanei.splice(idx, 1);
+            mostraTabellaTemporanea(datiTemporanei);
+        }
+
+                function apriGestioneReferti() {
+                    document.getElementById('gestioneRefertiPanel').style.display = 'block';
+                    caricaArchivioReferti();
+                }
+
+                function chiudiGestioneReferti() {
+                    document.getElementById('gestioneRefertiPanel').style.display = 'none';
+                }
+
+                async function caricaArchivioReferti() {
+                    try {
+                        const res = await fetch(`${API_URL}/referti`);
+                        const dati = await res.json();
+                        const tbody = document.querySelector('#archivioRefertiTable tbody');
+                        tbody.innerHTML = '';
+                        // Raggruppa per accettazione, mostra solo il primo esame per ogni referto
+                        const visti = new Set();
+                        dati.forEach(row => {
+                            if (visti.has(row.accettazione)) return;
+                            visti.add(row.accettazione);
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${row.data}</td>
+                                <td>${row.paziente}</td>
+                                <td>${row.accettazione}</td>
+                                <td><button onclick="apriPdfReferto('${row.accettazione}')">Apri PDF</button></td>
+                                <td><button onclick="eliminaRefertoArchivio(${row.id_referto})">Elimina</button></td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    } catch (e) {
+                        alert('Errore caricamento archivio referti: ' + e);
+                    }
+                }
+
+                function apriPdfReferto(accettazione) {
+                    // Richiama l'apertura del PDF tramite backend e shell/app di sistema
+                    window.open(`../db/${accettazione}.pdf`, '_blank');
+                }
+
+                async function eliminaRefertoArchivio(id) {
+                    if (!confirm('Sei sicuro di voler eliminare questo referto?')) return;
+                    try {
+                        const res = await fetch(`${API_URL}/referti/${id}`, { method: 'DELETE' });
+                        const data = await res.json();
+                        if (data.success) {
+                            caricaArchivioReferti();
+                            loadReferti();
+                        } else {
+                            alert('Errore eliminazione: ' + data.message);
+                        }
+                    } catch (e) {
+                        alert('Errore eliminazione: ' + e);
+                    }
+                }
+        const API_URL = "http://127.0.0.1:5000";
+
+        // --- Stato ---
+        let referti = [];
+        let pazienti = [];
+        let refertiPerPaziente = {};
+        let refertoSelezionato = null;
+
+        // --- Caricamento iniziale ---
+        window.onload = async function() {
+            await caricaRefertiMain();
+        };
+
+        async function caricaRefertiMain() {
+            try {
+                const res = await fetch(`${API_URL}/referti`);
+                referti = await res.json();
+                // Estrai pazienti unici
+                pazienti = [...new Set(referti.map(r => r.paziente))].filter(p => p);
+                // Raggruppa referti per paziente
+                refertiPerPaziente = {};
+                referti.forEach(r => {
+                    if (!refertiPerPaziente[r.paziente]) refertiPerPaziente[r.paziente] = [];
+                    refertiPerPaziente[r.paziente].push(r);
+                });
+                popolaDropdownPazienti();
+            } catch (e) {
+                alert('Errore caricamento referti: ' + e);
+            }
+        }
+
+        function popolaDropdownPazienti() {
+            const dropdown = document.getElementById('dropdownPazienti');
+            dropdown.innerHTML = '';
+            pazienti.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                dropdown.appendChild(opt);
+            });
+            dropdown.onchange = aggiornaDropdownDateReferti;
+            // Seleziona il primo paziente
+            if (pazienti.length > 0) {
+                dropdown.value = pazienti[0];
+                aggiornaDropdownDateReferti();
+            }
+        }
+
+        function aggiornaDropdownDateReferti() {
+            const paziente = document.getElementById('dropdownPazienti').value;
+            const dropdownDate = document.getElementById('dropdownDateReferti');
+            dropdownDate.innerHTML = '';
+            const refertiPaz = refertiPerPaziente[paziente] || [];
+            // Ordina per data decrescente (supporta formato DD-MM-YYYY)
+            function parseData(d) {
+                if (!d) return 0;
+                const parts = d.split('-');
+                if (parts.length === 3) {
+                    // DD-MM-YYYY
+                    return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
+                }
+                return new Date(d).getTime();
+            }
+            // Mostra solo date uniche
+            let dateUniche = [...new Set(refertiPaz.map(r => r.data))];
+            dateUniche = dateUniche.filter(Boolean);
+            dateUniche.sort((a, b) => parseData(b) - parseData(a));
+            dateUniche.forEach(data => {
+                const opt = document.createElement('option');
+                opt.value = data;
+                opt.textContent = data;
+                dropdownDate.appendChild(opt);
+            });
+            dropdownDate.onchange = aggiornaRefertoSelezionato;
+            // Seleziona la data più recente
+            if (dateUniche.length > 0) {
+                dropdownDate.value = dateUniche[0];
+                aggiornaRefertoSelezionato();
+            }
+        }
+
+        function aggiornaRefertoSelezionato() {
+            const paziente = document.getElementById('dropdownPazienti').value;
+            const dataRef = document.getElementById('dropdownDateReferti').value;
+            const refertiPaz = refertiPerPaziente[paziente] || [];
+            refertoSelezionato = refertiPaz.find(r => r.data === dataRef);
+            aggiornaVistaReferto();
+        }
+
+        function aggiornaVistaReferto() {
+            if (!refertoSelezionato) return;
+            document.getElementById('labelNumeroReferto').textContent = refertoSelezionato.accettazione || '';
+            document.getElementById('noteInput').value = refertoSelezionato.note || '';
+            // Tabella esami
+            const tbody = document.querySelector('#tabellaEsami tbody');
+            tbody.innerHTML = '';
+            // Filtra esami relativi a questo referto
+            const esami = referti.filter(r => r.accettazione === refertoSelezionato.accettazione);
+            // Trova referto precedente per stesso paziente e esame
+            let refertiPaz = refertiPerPaziente[refertoSelezionato.paziente] || [];
+            // Ordina per data decrescente
+            refertiPaz = refertiPaz.sort((a, b) => b.data.localeCompare(a.data));
+            esami.forEach(r => {
+                // Trova valore precedente per stesso esame
+                let valorePrecedente = '';
+                let trovatoCorrente = false;
+                for (let ref of refertiPaz) {
+                    if (ref.data === r.data && ref.esame === r.esame) {
+                        trovatoCorrente = true;
+                        continue;
+                    }
+                    if (trovatoCorrente && ref.esame === r.esame) {
+                        valorePrecedente = ref.risultato;
+                        break;
+                    }
+                }
+                const tr = document.createElement('tr');
+                const semaforo = r.anomalia == 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
+                tr.innerHTML = `
+                    <td style="text-align:left;">${r.esame}</td>
+                    <td style="text-align:center;">${r.risultato}</td>
+                    <td style="text-align:center;">${r.um}</td>
+                    <td style="text-align:center;">${r.rif}</td>
+                    <td style="text-align:center;">${semaforo}</td>
+                    <td style="text-align:center;color:#888;">${valorePrecedente}</td>
+                `;
+                tr.ondblclick = function() {
+                    mostraStoricoEsame(r.esame, r.paziente, r.um);
+                };
+                tbody.appendChild(tr);
+            });
+            // Grafico
+            aggiornaGraficoReferto(refertoSelezionato.id_referto);
+        }
+
+        async function aggiornaGraficoReferto(id_referto) {
+            const div = document.getElementById('graficoPreview');
+            div.innerHTML = '';
+            try {
+                const res = await fetch(`${API_URL}/grafico/${id_referto}`);
+                const data = await res.json();
+                if (data.image) {
+                    div.innerHTML = `<img id="imgGraficoReferto" src="data:image/png;base64,${data.image}" style="max-width:400px;max-height:250px;border:1px solid #aaa;box-shadow:0 2px 8px #0002;cursor:zoom-in;">`;
+                    const img = document.getElementById('imgGraficoReferto');
+                    img.onclick = function() {
+                        // Mostra popup con immagine grande
+                        const popup = document.createElement('div');
+                        popup.style.position = 'fixed';
+                        popup.style.left = '50%';
+                        popup.style.top = '50%';
+                        popup.style.transform = 'translate(-50%, -50%)';
+                        popup.style.background = '#fff';
+                        popup.style.border = '2px solid #888';
+                        popup.style.padding = '24px 32px';
+                        popup.style.zIndex = 9999;
+                        popup.style.boxShadow = '0 4px 24px #0003';
+                        popup.innerHTML = `<img src='data:image/png;base64,${data.image}' style='max-width:90vw;max-height:80vh;display:block;margin:auto;border:1px solid #aaa;'><br><button onclick='this.parentNode.remove()' style='display:block;margin:20px auto 0 auto;'>Chiudi</button>`;
+                        document.body.appendChild(popup);
+                    };
+                }
+            } catch (e) {
+                div.innerHTML = '<span style="color:#888">Nessun grafico disponibile</span>';
+            }
+        }
+
+        // Funzione per mostrare il grafico acquisizione (deve essere globale)
+        function mostraGraficoPreviewAcquisizione(imgB64) {
+            const div = document.getElementById('graficoPreviewAcquisizione');
+            if (imgB64) {
+                div.innerHTML = `<img src="data:image/png;base64,${imgB64}" style="max-width:400px;max-height:250px;border:1px solid #aaa;box-shadow:0 2px 8px #0002;">`;
+            } else {
+                div.innerHTML = '';
+            }
+        }
+        window.mostraGraficoPreviewAcquisizione = mostraGraficoPreviewAcquisizione;
+
+        // Storico risultati esame per paziente
+        function mostraStoricoEsame(nomeEsame, paziente, um) {
+            let storico = (refertiPerPaziente[paziente] || []).filter(r => r.esame === nomeEsame);
+            // Ordina per data discendente (supporta DD-MM-YYYY)
+            function parseData(d) {
+                if (!d) return 0;
+                const parts = d.split('-');
+                if (parts.length === 3) {
+                    // DD-MM-YYYY
+                    return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
+                }
+                return new Date(d).getTime();
+            }
+            storico = storico.sort((a, b) => parseData(b.data) - parseData(a.data));
+            let html = `<b>Storico risultati per:</b> ${nomeEsame} (${um})<br><table style='width:100%;margin-top:8px'><tr><th style='text-align:left;'>Data</th><th style='text-align:center;'>Risultato</th><th style='text-align:center;'>UM</th><th style='text-align:center;'>Valori di riferimento</th><th style='text-align:center;'>Semaforo</th></tr>`;
+            storico.forEach(r => {
+                const semaforo = r.anomalia == 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
+                html += `<tr><td style='text-align:left;'>${r.data}</td><td style='text-align:center;'>${r.risultato}</td><td style='text-align:center;'>${r.um}</td><td style='text-align:center;'>${r.rif || ''}</td><td style='text-align:center;'>${semaforo}</td></tr>`;
+            });
+            html += '</table>';
+            // Mostra popup modale
+            const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.left = '0';
+            overlay.style.top = '0';
+            overlay.style.width = '100vw';
+            overlay.style.height = '100vh';
+            overlay.style.background = 'rgba(0,0,0,0.35)';
+            overlay.style.zIndex = 9998;
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            const popup = document.createElement('div');
+            popup.style.position = 'relative';
+            popup.style.background = '#fff';
+            popup.style.border = '2px solid #888';
+            popup.style.padding = '24px 32px';
+            popup.style.boxShadow = '0 4px 24px #0003';
+            popup.innerHTML = html + "<br><button style='display:block;margin:20px auto 0 auto;' onclick='this.parentNode.parentNode.remove()'>Chiudi</button>";
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
+        }
+    </script>
+</body>
+</html>

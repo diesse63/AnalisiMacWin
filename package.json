@@ -1,0 +1,17 @@
+{
+  "name": "gestione-analisi-mediche",
+  "version": "1.0.0",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.0"
+  },
+  "dependencies": {
+    "electron-context-menu": "^4.1.1"
+  }
+}
