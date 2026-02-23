@@ -13,5 +13,26 @@
   },
   "dependencies": {
     "electron-context-menu": "^4.1.1"
+  },
+  "build": {
+    "appId": "com.example.gestioneanalisi",
+    "productName": "Gestione Analisi Mediche",
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64", "ia32", "arm64"]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.icns",
+      "artifactName": "${productName}-mac-${version}-${arch}.${ext}"
+    }
   }
 }
