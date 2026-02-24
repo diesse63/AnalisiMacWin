@@ -52,7 +52,7 @@
     <div id="gestioneRefertiPanel" class="upload-panel" style="display:none;z-index:2000;">
         <div class="upload-panel-header">
             <h2>Archivio Referti</h2>
-            <button onclick="chiudiGestioneReferti()">Chiudi</button>
+            <button id="chiudiGestioneRefertiBtn" onclick="chiudiGestioneReferti()">Chiudi</button>
         </div>
         <table id="archivioRefertiTable" style="width:100%;border-collapse:collapse;">
             <thead>
@@ -108,43 +108,44 @@
                 <div id="graficoPreview" style="margin-top:10px; text-align:center;"></div>
             </div>
         </fieldset>
-        <div id="uploadPanel" style="border:1px solid #ccc; background:#f9f9f9; padding:24px; margin-top:10px; display:none;">
-            <div class="upload-panel-header">
-                <h2 style="display:none;">Acquisizione Nuovo Referto</h2>
-            </div>
-            <div id="acquisizioneHeader" style="margin-bottom:20px;display:none;">
-                <b>Paziente:</b> <span id="acqPaziente"></span> &nbsp;|
-                <b>Numero Referto:</b> <span id="acqNumero"></span> &nbsp;|
-                <b>Data Referto:</b> <span id="acqData"></span> &nbsp;|
-                <b>Note:</b> <input id="acqNote" type="text" style="width:300px;">
-            </div>
-            <input type="file" id="pdfInput" accept="application/pdf">
-            <button onclick="uploadFile()">Carica PDF</button>
-            <span id="statusMsg" style="margin-left:10px;color:#888"></span>
-            <div id="tempTableSection" style="display:none;margin-top:20px">
-                <h3>Tabella dati estratti</h3>
-                <select id="tempTableFiltro">
-                    <option value="tutte">Tutte</option>
-                    <option value="corrette">Corrette</option>
-                    <option value="errate">Errate</option>
-                </select>
-                <table id="tempTable" border="1" style="margin-top:10px">
-                    <thead>
-                        <tr>
-                            <th>Esame</th>
-                            <th>Risultato</th>
-                            <th>UM</th>
-                            <th>Rif</th>
-                            <th>Anomalia</th>
-                            <th>Azioni</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-                <button id="saveTempBtn" style="margin-top:20px;display:none;" onclick="confermaInserimento()">Salva Modifiche</button>
-            </div>
-            <div id="graficoPreviewAcquisizione" style="margin-top:20px"></div>
+    <div id="uploadPanel" class="upload-panel" style="display:none;z-index:2000;">
+        <div class="upload-panel-header">
+            <h2>Nuovo Referto</h2>
+            <button id="chiudiUploadPanelBtn" onclick="toggleUploadPanel()">Chiudi</button>
         </div>
+        <div id="acquisizioneHeader" style="margin-bottom:20px; display:none;">
+            <b>Paziente:</b> <span id="acqPaziente"></span> &nbsp;|
+            <b>Numero Referto:</b> <span id="acqNumero"></span> &nbsp;|
+            <b>Data Referto:</b> <span id="acqData"></span> &nbsp;|
+            <b>Note:</b> <input id="acqNote" type="text" style="width:300px;">
+        </div>
+        <input type="file" id="pdfInput" accept="application/pdf">
+        <button onclick="uploadFile()">Carica PDF</button>
+        <span id="statusMsg" style="margin-left:10px;color:#888"></span>
+        <div id="tempTableSection" style="display:none;margin-top:20px">
+            <h3>Tabella dati estratti</h3>
+            <select id="tempTableFiltro">
+                <option value="tutte">Tutte</option>
+                <option value="corrette">Corrette</option>
+                <option value="errate">Errate</option>
+            </select>
+            <table id="tempTable" border="1" style="margin-top:10px">
+                <thead>
+                    <tr>
+                        <th>Esame</th>
+                        <th>Valore</th>
+                        <th>UM</th>
+                        <th>Valore di riferimento</th>
+                        <th>Anomalia</th>
+                        <th>Azione</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <button id="saveTempBtn" style="margin-top:20px;display:none;" onclick="confermaInserimento()">Salva Modifiche</button>
+        </div>
+        <div id="graficoPreviewAcquisizione" style="margin-top:20px"></div>
+    </div>
     </div>
 
     <style>
@@ -181,9 +182,10 @@
 
     <script>
                 // Collega visibilità uploadPanel al bottone "Nuovo Referto" in main
-                const uploadPanel = document.getElementById('uploadPanel');
-                const openUploadBtn = document.getElementById('openUploadBtn');
-                openUploadBtn.onclick = function() {
+
+                function toggleUploadPanel() {
+                    const uploadPanel = document.getElementById('uploadPanel');
+                    const openUploadBtn = document.getElementById('openUploadBtn');
                     if (uploadPanel.style.display === 'none' || uploadPanel.style.display === '') {
                         uploadPanel.style.display = 'block';
                         openUploadBtn.textContent = 'Chiudi Acquisizione';
@@ -191,7 +193,8 @@
                         uploadPanel.style.display = 'none';
                         openUploadBtn.textContent = 'Nuovo Referto';
                     }
-                };
+                }
+                window.toggleUploadPanel = toggleUploadPanel;
 
                 // Mostra/aggiorna tempTableSection dopo upload
                 function mostraTabellaTemporanea(dati) {
@@ -221,13 +224,55 @@
                         if (!row.archiviato) tr.classList.add('not-archived-row');
                         const semaforo = row.anomalia == 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
                         tr.innerHTML = `
-                            <td style="text-align:left;" ondblclick="mostraStoricoEsame('${r.esame.replace(/'/g, "\\'")}', '${r.paziente.replace(/'/g, "\\'")}', '${r.um.replace(/'/g, "\\'")}' )">${r.esame}</td>
-                            <td style="text-align:center;">${r.risultato}</td>
-                            <td style="text-align:center;">${r.um}</td>
-                            <td style="text-align:center;">${r.rif}</td>
-                            <td style="text-align:center;">${semaforo}</td>
-                            <td style="text-align:center;color:#888;">${valorePrecedente}</td>
+                            <td style="text-align:left; min-width:120px; max-width:220px;">
+                                <input type="text" value="${row.esame}" style="width:98%; min-width:100px; max-width:210px;" onchange="aggiornaCampoTempGlobal(${row._rowid}, 'esame', this.value)">
+                            </td>
+                            <td style="text-align:center; min-width:60px; max-width:100px;">
+                                <input type="text" value="${row.risultato}" style="width:90px; min-width:60px; max-width:100px; text-align:center;" onchange="aggiornaCampoTempGlobal(${row._rowid}, 'risultato', this.value)">
+                            </td>
+                            <td style="text-align:center; min-width:40px; max-width:60px;">
+                                <input type="text" value="${row.um}" style="width:50px; min-width:40px; max-width:60px; text-align:center;" onchange="aggiornaCampoTempGlobal(${row._rowid}, 'um', this.value)">
+                            </td>
+                            <td style="text-align:center; min-width:90px; max-width:160px;">
+                                <input type="text" value="${row.rif}" style="width:120px; min-width:90px; max-width:150px;" onchange="aggiornaCampoTempGlobal(${row._rowid}, 'rif', this.value)">
+                            </td>
+                            <td style="text-align:center; min-width:48px; max-width:60px;">
+                                <select style="width:48px;" onchange="aggiornaCampoTempGlobal(${row._rowid}, 'anomalia', this.value)">
+                                    <option value="0" ${row.anomalia == 0 ? 'selected' : ''}>🟢</option>
+                                    <option value="1" ${row.anomalia == 1 ? 'selected' : ''}>🔴</option>
+                                </select>
+                            </td>
+                            <td style="text-align:center;">
+                                <button onclick="cancellaRigaTempGlobal(${row._rowid})">Elimina</button>
+                            </td>
                         `;
+                        // Menu contestuale tasto destro SOLO per la tabella provvisoria
+                        tr.oncontextmenu = function(e) {
+                            e.preventDefault();
+                            // Rimuovi eventuale menu precedente
+                            let oldMenu = document.getElementById('contextMenuTempTable');
+                            if (oldMenu) oldMenu.remove();
+                            // Crea menu
+                            const menu = document.createElement('div');
+                            menu.id = 'contextMenuTempTable';
+                            menu.style.position = 'fixed';
+                            menu.style.top = e.clientY + 'px';
+                            menu.style.left = e.clientX + 'px';
+                            menu.style.background = '#fff';
+                            menu.style.border = '1px solid #888';
+                            menu.style.zIndex = 9999;
+                            menu.style.boxShadow = '0 2px 8px #0003';
+                            menu.innerHTML = `
+                                <div style="padding:8px;cursor:pointer;" onclick="mostraStoricoEsame('${row.esame.replace(/'/g, "\\'")}', '${row.paziente ? row.paziente.replace(/'/g, "\\'") : ''}', '${row.um.replace(/'/g, "\\'")}' );this.parentNode.remove();">Storico esame</div>
+                                <div style="padding:8px;cursor:pointer;" onclick="cancellaRigaTempGlobal(${row._rowid});this.parentNode.remove();">Elimina riga</div>
+                                <div style="padding:8px;cursor:pointer;" onclick="aggiornaCampoTempGlobal(${row._rowid}, 'anomalia', ${row.anomalia == 0 ? 1 : 0});this.parentNode.remove();">Cambia semaforo</div>
+                            `;
+                            document.body.appendChild(menu);
+                            // Chiudi menu al click fuori
+                            document.addEventListener('mousedown', function handler(ev) {
+                                if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', handler); }
+                            });
+                        };
                         tbody.appendChild(tr);
                     });
                     section.style.display = 'block';
@@ -264,6 +309,7 @@
                 const res = await fetch(`${API_URL}/upload_preview`, { method: 'POST', body: formData });
                 const data = await res.json();
                 if (data.success && data.dati) {
+                    // ...
                     // --- Controllo duplicato ---
                     if (data.metadata && data.metadata.accettazione) {
                         const accettazione = data.metadata.accettazione;
@@ -302,59 +348,7 @@
             }
         }
 
-        function mostraTabellaTemporanea() {
-            const section = document.getElementById('tempTableSection');
-            const tbody = document.querySelector('#tempTable tbody');
-            tbody.innerHTML = '';
-            let filtro = 'tutte';
-            const filtroElem = document.getElementById('tempTableFiltro');
-            if (filtroElem) {
-                filtroElem.onchange = () => mostraTabellaTemporanea();
-                filtro = filtroElem.value;
-            }
-            // Protezione: se righeTabellaTemporanea non è array, fallback a []
-            if (!Array.isArray(window.righeTabellaTemporanea)) {
-                window.righeTabellaTemporanea = [];
-            }
-            let datiFiltrati = [];
-            if (filtro === 'corrette') {
-                datiFiltrati = window.righeTabellaTemporanea.filter(r => r.archiviato);
-            } else if (filtro === 'errate') {
-                datiFiltrati = window.righeTabellaTemporanea.filter(r => !r.archiviato);
-            } else {
-                datiFiltrati = window.righeTabellaTemporanea;
-            }
-            datiFiltrati.forEach((row, i) => {
-                const tr = document.createElement('tr');
-                if (!row.archiviato) tr.classList.add('not-archived-row');
-                const semaforo = row.anomalia == 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
-                tr.innerHTML = `
-                    <td style="text-align:left;" ondblclick="mostraStoricoEsame('${r.esame.replace(/'/g, "\\'")}', '${r.paziente.replace(/'/g, "\\'")}', '${r.um.replace(/'/g, "\\'")}' )">${r.esame}</td>
-                    <td style="text-align:center;">${r.risultato}</td>
-                    <td style="text-align:center;">${r.um}</td>
-                    <td style="text-align:center;">${r.rif}</td>
-                    <td style="text-align:center;">${semaforo}</td>
-                    <td style="text-align:center;color:#888;">${valorePrecedente}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-            section.style.display = 'block';
-            let saveBtn = document.getElementById('saveTempBtn');
-            if (filtro === 'tutte') {
-                if (!saveBtn) {
-                    saveBtn = document.createElement('button');
-                    saveBtn.id = 'saveTempBtn';
-                    saveBtn.innerText = 'Salva Modifiche';
-                    saveBtn.style.marginTop = '20px';
-                    saveBtn.onclick = () => confermaInserimento();
-                    section.appendChild(saveBtn);
-                } else {
-                    saveBtn.style.display = 'inline-block';
-                }
-            } else if (saveBtn) {
-                saveBtn.style.display = 'none';
-            }
-        }
+        // ...existing code...
 
         // Inizializza righeTabellaTemporanea dopo upload
         async function uploadFile() {
@@ -383,8 +377,17 @@
                             return;
                         }
                     }
+                    // Popola intestazione con i dati estratti
+                    document.getElementById('acqPaziente').textContent = data.metadata && data.metadata.paziente ? data.metadata.paziente : '';
+                    document.getElementById('acqNumero').textContent = data.metadata && data.metadata.accettazione ? data.metadata.accettazione : '';
+                    document.getElementById('acqData').textContent = data.metadata && data.metadata.data ? data.metadata.data : '';
+                    document.getElementById('acqNote').value = data.metadata && data.metadata.note ? data.metadata.note : '';
+                    document.getElementById('acquisizioneHeader').style.display = 'block';
                     datiTemporanei = data.dati;
-                    mostraTabellaTemporanea(datiTemporanei);
+                    // --- Inizializza righeTabellaTemporanea con _rowid univoco ---
+                    window.righeTabellaTemporanea = data.dati.map((r, idx) => ({...r, _rowid: idx + Math.floor(Math.random()*1000000)}));
+                    mostraTabellaTemporanea();
+                    document.getElementById('tempTableSection').style.display = 'block';
                     document.getElementById('statusMsg').innerText = 'Dati estratti, conferma per inserire.';
                     if (data.image) {
                         anteprimaGraficoAcquisizione = data.image;
@@ -393,12 +396,10 @@
                         anteprimaGraficoAcquisizione = null;
                         mostraGraficoPreviewAcquisizione(null);
                     }
-                    // --- Inizializza righeTabellaTemporanea con _rowid univoco ---
-                    window.righeTabellaTemporanea = data.dati.map((r, idx) => ({...r, _rowid: idx + Math.floor(Math.random()*1000000)}));
-                    mostraTabellaTemporanea();
                 } else {
                     document.getElementById('statusMsg').innerText = data.message || 'Errore estrazione dati.';
                     document.getElementById('acquisizioneHeader').style.display = 'none';
+                    document.getElementById('tempTableSection').style.display = 'none';
                 }
             } catch (e) {
                 alert("Errore connessione server: " + e);
@@ -476,7 +477,7 @@
                     document.getElementById('tempTableSection').style.display = 'none';
                     document.getElementById('graficoPreviewAcquisizione').innerHTML = '';
                     document.getElementById('acquisizioneHeader').style.display = 'none';
-                    await caricaRefertiMain();
+                    await caricaRefertiMain(); // Aggiorna dropdown
                 } else {
                     document.getElementById('statusMsg').innerText = data.message || 'Errore inserimento.';
                     if (data.message && data.message.includes('già presente')) {
@@ -498,10 +499,12 @@
                     document.getElementById('gestioneRefertiPanel').style.display = 'block';
                     caricaArchivioReferti();
                 }
+                window.apriGestioneReferti = apriGestioneReferti;
 
                 function chiudiGestioneReferti() {
                     document.getElementById('gestioneRefertiPanel').style.display = 'none';
                 }
+                window.chiudiGestioneReferti = chiudiGestioneReferti;
 
                 async function caricaArchivioReferti() {
                     try {
@@ -541,7 +544,7 @@
                         const data = await res.json();
                         if (data.success) {
                             caricaArchivioReferti();
-                            loadReferti();
+                            await caricaRefertiMain(); // Aggiorna dropdown dopo eliminazione
                         } else {
                             alert('Errore eliminazione: ' + data.message);
                         }
@@ -558,7 +561,35 @@
         let refertoSelezionato = null;
 
         // --- Caricamento iniziale ---
+        async function waitForBackend(timeoutMs = 20000, intervalMs = 700) {
+            const start = Date.now();
+            while (Date.now() - start < timeoutMs) {
+                try {
+                    const res = await fetch(`${API_URL}/referti`, { method: 'GET' });
+                    if (res.ok) return true;
+                } catch (e) {
+                    // backend non pronto ancora
+                }
+                await new Promise(r => setTimeout(r, intervalMs));
+            }
+            return false;
+        }
+
         window.onload = async function() {
+            const ready = await waitForBackend(20000, 700);
+            if (!ready) {
+                const retry = confirm('Errore: impossibile contattare il backend. Vuoi riprovare?');
+                if (retry) {
+                    // prova ancora ma con timeout maggiore
+                    const ok = await waitForBackend(60000, 1000);
+                    if (!ok) {
+                        alert('Backend non raggiungibile: controlla che api.exe sia presente ed avviato.');
+                        return;
+                    }
+                } else {
+                    return;
+                }
+            }
             await caricaRefertiMain();
         };
 
@@ -612,10 +643,14 @@
                 }
                 return new Date(d).getTime();
             }
-            // Mostra solo date uniche
+            // Mostra solo date uniche, ordinate in modo discendente
             let dateUniche = [...new Set(refertiPaz.map(r => r.data))];
             dateUniche = dateUniche.filter(Boolean);
-            dateUniche.sort((a, b) => parseData(b) - parseData(a));
+            dateUniche.sort((a, b) => {
+                const pa = parseData(a);
+                const pb = parseData(b);
+                return pb - pa;
+            });
             dateUniche.forEach(data => {
                 const opt = document.createElement('option');
                 opt.value = data;
@@ -652,18 +687,24 @@
             // Ordina per data decrescente
             refertiPaz = refertiPaz.sort((a, b) => b.data.localeCompare(a.data));
             esami.forEach(r => {
-                // Trova valore precedente per stesso esame
+                // Trova valore precedente per stesso esame con data antecedente
                 let valorePrecedente = '';
-                let trovatoCorrente = false;
-                for (let ref of refertiPaz) {
-                    if (ref.data === r.data && ref.esame === r.esame) {
-                        trovatoCorrente = true;
-                        continue;
+                // Ordina refertiPaz per data decrescente
+                const parseData = d => {
+                    if (!d) return 0;
+                    const parts = d.split('-');
+                    if (parts.length === 3) {
+                        return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
                     }
-                    if (trovatoCorrente && ref.esame === r.esame) {
-                        valorePrecedente = ref.risultato;
-                        break;
-                    }
+                    return new Date(d).getTime();
+                };
+                const dataCorrente = parseData(r.data);
+                // Cerca il referto con data minore rispetto a quello attuale, stesso esame
+                let refertiPrecedenti = refertiPaz
+                    .filter(ref => ref.esame === r.esame && parseData(ref.data) < dataCorrente)
+                    .sort((a, b) => parseData(b.data) - parseData(a.data));
+                if (refertiPrecedenti.length > 0) {
+                    valorePrecedente = refertiPrecedenti[0].risultato;
                 }
                 const tr = document.createElement('tr');
                 const semaforo = r.anomalia == 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';

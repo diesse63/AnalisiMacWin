@@ -4,7 +4,9 @@
   "main": "src/main.js",
   "scripts": {
     "dev": "electron .",
-    "start": "electron .",
+    "build-backend-win": "cd backend && build_exe.bat",
+    "build-backend-unix": "cd backend && ./build_exe.sh",
+    "build-and-dist-win": "npm run build-backend-win && npm run dist",
     "dist": "electron-builder"
   },
   "devDependencies": {
@@ -15,24 +17,39 @@
     "electron-context-menu": "^4.1.1"
   },
   "build": {
-    "appId": "com.example.gestioneanalisi",
-    "productName": "Gestione Analisi Mediche",
+    "appId": "com.gestioneanalisi.app",
+    "productName": "Gestione Analisi Portable",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "index.html"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/dist",
+        "to": "backend/dist",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": ["api.exe"]
+      }
+    ],
+    "publish": "never",
     "win": {
-      "target": [
-        {
-          "target": "portable",
-          "arch": ["x64", "ia32", "arm64"]
-        }
-      ],
-      "icon": "build/icon.ico"
+      "target": ["portable"]
+    },
+    "compression": "store",
+    "portable": {
+      "artifactName": "${productName}_Portable_Win_${version}.${ext}",
+      "requestExecutionLevel": "user"
     },
     "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "icon": "build/icon.icns",
-      "artifactName": "${productName}-mac-${version}-${arch}.${ext}"
+      "target": ["dmg", "zip"],
+      "artifactName": "${productName}_Mac_${arch}_${version}.${ext}"
     }
   }
 }
