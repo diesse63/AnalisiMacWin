@@ -25,22 +25,20 @@
     ],
     "extraResources": [
       {
-        "from": "backend/dist/api${exe}",
-        "to": "backend/api${exe}"
+        "from": "backend/dist",
+        "to": "backend/dist",
+        "filter": ["**/*"]
       }
     ],
     "win": {
-      "target": "portable",
-      "icon": "build/icon.ico"
+      "target": "portable"
     },
     "portable": {
       "artifactName": "${productName}_Portable_Win_${version}.${ext}",
-      "requestExecutionLevel": "user",
-      "splashImage": "build/splash.bmp" 
+      "requestExecutionLevel": "user"
     },
     "mac": {
       "target": ["dmg", "zip"],
-      "icon": "build/icon.icns",
       "artifactName": "${productName}_Mac_${arch}_${version}.${ext}"
     }
   }
