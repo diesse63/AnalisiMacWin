@@ -42,10 +42,22 @@ function startPythonBackend() {
     if (app.isPackaged) {
         // --- PRODUZIONE ---
         const binaryName = process.platform === 'win32' ? 'api.exe' : 'api';
-        scriptPath = path.join(process.resourcesPath, 'backend', binaryName);
+        // electron-builder may place extraResources under resources/backend/dist or resources/backend
+        const fs = require('fs');
+        const candidate1 = path.join(process.resourcesPath, 'backend', binaryName);
+        const candidate2 = path.join(process.resourcesPath, 'backend', 'dist', binaryName);
+        if (fs.existsSync(candidate1)) {
+            scriptPath = candidate1;
+        } else if (fs.existsSync(candidate2)) {
+            scriptPath = candidate2;
+        } else {
+            // fallback: try without dist (older packages) or log error
+            scriptPath = candidate2; // prefer candidate2 path for logging
+            console.error('Backend executable not found in resources. Tried:', candidate1, candidate2);
+        }
         command = scriptPath;
         // Passiamo il percorso dati come argomento al Python
-        args = ['--data-dir', dataPath]; 
+        args = ['--data-dir', dataPath];
     } else {
         // --- SVILUPPO ---
         scriptPath = path.join(__dirname, '../backend/api.py');
