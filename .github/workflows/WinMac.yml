@@ -1,0 +1,66 @@
+name: Build Portable App (Win & Mac)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            arch: x64
+          - os: macos-13
+            platform: mac
+            arch: x64   # Intel Mac
+          - os: macos-14
+            platform: mac
+            arch: arm64 # Apple Silicon (M1/M2/M3)
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # --- 1. SETUP PYTHON ---
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install Python Deps
+      run: |
+        pip install -r backend/requirements.txt
+        pip install pyinstaller
+
+    # --- 2. BUILD PYTHON BACKEND ---
+    - name: Build Python Backend
+      run: |
+        pyinstaller --clean --noconfirm --onefile --windowed --name api --distpath backend/dist --workpath backend/build backend/api.py
+
+    # --- 3. SETUP NODE & BUILD ELECTRON ---
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+
+    - name: Install NPM Deps
+      run: npm install
+
+    - name: Build Electron App
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: npm run dist
+
+    # --- 4. UPLOAD ARTIFACTS ---
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Build-${{ matrix.os }}-${{ matrix.arch }}
+        path: |
+          dist/*.exe
+          dist/*.dmg
+          dist/*.zip

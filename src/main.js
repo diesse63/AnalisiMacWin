@@ -1,6 +1,4 @@
 const { app, BrowserWindow } = require('electron');
-// Import dinamico per compatibilità cross-platform
-let contextMenu;
 const path = require('path');
 const { spawn } = require('child_process');
 
@@ -8,16 +6,8 @@ let mainWindow;
 let pythonProcess;
 
 function createWindow() {
-        // Import dinamico ES module
-        import('electron-context-menu').then(mod => {
-            mod.default({
-                window: mainWindow,
-                showCopyImage: false,
-                showSaveImage: false,
-                showInspectElement: true,
-                prepend: (defaultActions, params, browserWindow) => []
-            });
-        }).catch(() => {});
+    // ... (codice context-menu precedente o importazione) ...
+    
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 800,
@@ -28,50 +18,48 @@ function createWindow() {
     });
 
     mainWindow.loadFile(path.join(__dirname, 'index.html'));
-
-    // Abilita menu contestuale di default sugli input
-    mainWindow.webContents.on('context-menu', (event, params) => {
-        if (params.isEditable) {
-            mainWindow.webContents.executeJavaScript('document.execCommand("copy")');
-        }
-    });
 }
 
 function startPythonBackend() {
     let scriptPath;
     let command;
     let args = [];
-
+    
+    // Calcola dove salvare i dati (DB/PDF)
+    // Se siamo in modalità Portable Windows, usiamo la cartella dell'EXE.
+    // Altrimenti usiamo i documenti o la cartella utente.
+    let dataPath;
+    if (process.env.PORTABLE_EXECUTABLE_DIR) {
+        // Caso Windows Portable (es. Chiavetta USB)
+        dataPath = process.env.PORTABLE_EXECUTABLE_DIR;
+    } else {
+        // Caso Sviluppo o Mac o Installato
+        // path.dirname(app.getPath('exe')) su Mac è dentro il pacchetto .app (scomodo),
+        // meglio usare userData o lasciar decidere a python.
+        dataPath = app.getPath('userData'); 
+    }
 
     if (app.isPackaged) {
-        // --- MODALITÀ PRODUZIONE (App installata) ---
+        // --- PRODUZIONE ---
         const binaryName = process.platform === 'win32' ? 'api.exe' : 'api';
         scriptPath = path.join(process.resourcesPath, 'backend', binaryName);
         command = scriptPath;
-        args = [];
-        console.log("Produzione: Avvio backend da", scriptPath);
+        // Passiamo il percorso dati come argomento al Python
+        args = ['--data-dir', dataPath]; 
     } else {
-        // --- MODALITÀ SVILUPPO (npm run dev) ---
+        // --- SVILUPPO ---
         scriptPath = path.join(__dirname, '../backend/api.py');
         const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
         command = pythonCmd;
-        args = [scriptPath];
-        console.log("Sviluppo: Avvio python da", scriptPath);
+        args = [scriptPath, '--data-dir', dataPath];
     }
+
+    console.log(`Avvio Python: ${command} con args: ${args}`);
 
     pythonProcess = spawn(command, args);
 
-    pythonProcess.stdout.on('data', (data) => {
-        console.log(`[Python]: ${data}`);
-    });
-    
-    pythonProcess.stderr.on('data', (data) => {
-        console.error(`[Python Err]: ${data}`);
-    });
-    
-    pythonProcess.on('error', (err) => {
-        console.error("Impossibile avviare Python:", err);
-    });
+    pythonProcess.stdout.on('data', (data) => console.log(`[Python]: ${data}`));
+    pythonProcess.stderr.on('data', (data) => console.error(`[Python Err]: ${data}`));
 }
 
 app.whenReady().then(() => {
