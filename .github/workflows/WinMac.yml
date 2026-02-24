@@ -14,10 +14,10 @@ jobs:
           - os: windows-latest
             platform: win
             arch: x64
-          - os: macos-13
+          - os: macos-latest
             platform: mac
             arch: x64   # Intel Mac
-          - os: macos-14
+          - os: macos-latest
             platform: mac
             arch: arm64 # Apple Silicon (M1/M2/M3)
 
@@ -38,7 +38,12 @@ jobs:
 
     - name: Build Python backend with PyInstaller
       run: |
-        pyinstaller --clean --noconfirm --onefile --windowed --name api --distpath backend/dist --workpath backend/build backend/api.py
+        pyinstaller --clean --noconfirm --onefile --name api --distpath backend/dist --workpath backend/build backend/api.py
+
+    - name: Ensure backend binary is executable on mac
+      if: matrix.platform == 'mac'
+      run: |
+        chmod +x backend/dist/api || true
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -53,13 +58,28 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: npm run dist
 
+    - name: Package Windows portable with backend executable
+      if: matrix.platform == 'win'
+      run: |
+        pwsh -Command "
+        $dist = Get-ChildItem -Path dist -Filter *.portable -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $dist) { $dist = Get-ChildItem -Path dist -Filter *.exe -Recurse | Select-Object -First 1 }
+        if (-not $dist) { Write-Host 'No portable exe found in dist'; exit 0 }
+        Write-Host "Found portable: $($dist.FullName)"
+        $outZip = "dist/portable_with_backend.zip"
+        if (Test-Path $outZip) { Remove-Item $outZip }
+        $files = @($dist.FullName)
+        $backendExe = 'backend/dist/api.exe'
+        if (Test-Path $backendExe) { $files += (Resolve-Path $backendExe).Path }
+        Compress-Archive -Path $files -DestinationPath $outZip -Force
+        Write-Host "Created $outZip"
+        "
+
     - name: Collect build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: Build-${{ matrix.platform }}-${{ matrix.arch }}
         path: |
-          dist/*.exe
-          dist/*.portable
-          dist/*.dmg
-          dist/*.zip
+          dist/**
           backend/dist/**
+          dist/portable_with_backend.zip

@@ -51,12 +51,16 @@ function startPythonBackend() {
         } else if (fs.existsSync(candidate2)) {
             scriptPath = candidate2;
         } else {
-            // fallback: try without dist (older packages) or log error
-            scriptPath = candidate2; // prefer candidate2 path for logging
-            console.error('Backend executable not found in resources. Tried:', candidate1, candidate2);
+            // Non trovato: mostriamo errore all'utente e interrompiamo l'avvio del backend
+            const { dialog } = require('electron');
+            const msg = `Backend executable non trovato in resources. Ho cercato:\n${candidate1}\n${candidate2}\n` +
+                        `Assicurati di aver incluso l'eseguibile (es. con PyInstaller) nella cartella backend/dist prima di fare il package.`;
+            console.error(msg);
+            try { dialog.showErrorBox('Backend mancante', msg); } catch (e) { /* ignore in headless build */ }
+            return; // non continuiamo a spawnare un comando inesistente
         }
         command = scriptPath;
-        // Passiamo il percorso dati come argomento al Python
+        // Passiamo il percorso dati come argomento
         args = ['--data-dir', dataPath];
     } else {
         // --- SVILUPPO ---
@@ -67,11 +71,19 @@ function startPythonBackend() {
     }
 
     console.log(`Avvio Python: ${command} con args: ${args}`);
-
     pythonProcess = spawn(command, args);
 
-    pythonProcess.stdout.on('data', (data) => console.log(`[Python]: ${data}`));
-    pythonProcess.stderr.on('data', (data) => console.error(`[Python Err]: ${data}`));
+    pythonProcess.on('error', (err) => {
+        console.error('Errore spawn backend:', err);
+        try {
+            const { dialog } = require('electron');
+            dialog.showErrorBox('Errore avvio backend', `Errore avviando il backend: ${err.message}`);
+        } catch (e) {}
+    });
+
+    pythonProcess.stdout.on('data', (data) => console.log(`[Backend]: ${data}`));
+    pythonProcess.stderr.on('data', (data) => console.error(`[Backend Err]: ${data}`));
+    pythonProcess.on('close', (code, signal) => console.log(`Backend terminato. code=${code} signal=${signal}`));
 }
 
 app.whenReady().then(() => {

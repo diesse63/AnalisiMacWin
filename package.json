@@ -4,6 +4,9 @@
   "main": "src/main.js",
   "scripts": {
     "dev": "electron .",
+    "build-backend-win": "cd backend && build_exe.bat",
+    "build-backend-unix": "cd backend && ./build_exe.sh",
+    "build-and-dist-win": "npm run build-backend-win && npm run dist",
     "dist": "electron-builder"
   },
   "devDependencies": {
@@ -28,6 +31,11 @@
         "from": "backend/dist",
         "to": "backend/dist",
         "filter": ["**/*"]
+      },
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": ["api.exe"]
       }
     ],
     "win": {
