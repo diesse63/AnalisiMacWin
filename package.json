@@ -1,13 +1,15 @@
 {
   "name": "gestione-analisi-mediche",
   "version": "1.0.0",
+  "description": "Gestione referti medici - applicazione portable",
+  "author": "Diesse63",
   "main": "src/main.js",
   "scripts": {
     "dev": "electron .",
     "build-backend-win": "cd backend && build_exe.bat",
     "build-backend-unix": "cd backend && ./build_exe.sh",
     "build-and-dist-win": "npm run build-backend-win && npm run dist",
-    "dist": "electron-builder"
+    "dist": "electron-builder --publish never"
   },
   "devDependencies": {
     "electron": "^28.0.0",
