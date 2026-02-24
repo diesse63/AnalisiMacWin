@@ -37,7 +37,6 @@
         ]
       }
     ],
-    "publish": "never",
     "mac": {
       "target": ["dmg", "zip"],
       "artifactName": "${productName}_Mac_${arch}_${version}.${ext}",
