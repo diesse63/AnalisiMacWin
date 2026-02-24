@@ -1,4 +1,4 @@
-name: Build Portable App (Win & Mac)
+name: Build Mac (Intel & Silicon)
 
 on:
   workflow_dispatch:
@@ -6,8 +6,11 @@ on:
     branches: [ main ]
 
 jobs:
+  # ---------------------------------------------------
+  # BUILD PER MAC APPLE SILICON (M1/M2/M3) - ARM64
+  # ---------------------------------------------------
   build-mac-arm64:
-    runs-on: macos-latest
+    runs-on: macos-14 # Runner Apple Silicon nativo
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -23,7 +26,8 @@ jobs:
           pip install -r backend/requirements.txt
           pip install pyinstaller
 
-      - name: Build Python backend with PyInstaller (mac arm64)
+      - name: Build Python backend (ARM64)
+        # Genera il file 'api' (senza .exe) in backend/dist
         run: |
           python -m PyInstaller --clean --noconfirm --onefile --name api api.py --distpath ../backend/dist --workpath ../backend/build
         working-directory: backend
@@ -36,19 +40,21 @@ jobs:
       - name: Install NPM dependencies
         run: npm ci
 
-      - name: Build Electron app (mac arm64)
+      - name: Build Electron App (ARM64)
+        # --arm64 dice a electron-builder di impacchettare per Silicon
         run: npm run dist -- --mac --arm64
 
-      - name: Upload artifacts (mac arm64)
+      - name: Upload Artifacts (ARM64)
         uses: actions/upload-artifact@v4
         with:
-          name: Build-mac-arm64
-          path: |
-            dist/**
-            backend/dist/**
+          name: GestioneAnalisi-Mac-M1-M2
+          path: dist/*.dmg
 
+  # ---------------------------------------------------
+  # BUILD PER MAC INTEL - x64
+  # ---------------------------------------------------
   build-mac-x64:
-    runs-on: macos-latest
+    runs-on: macos-13 # Runner Intel nativo
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -64,7 +70,7 @@ jobs:
           pip install -r backend/requirements.txt
           pip install pyinstaller
 
-      - name: Build Python backend with PyInstaller (mac x64)
+      - name: Build Python backend (x64)
         run: |
           python -m PyInstaller --clean --noconfirm --onefile --name api api.py --distpath ../backend/dist --workpath ../backend/build
         working-directory: backend
@@ -77,13 +83,12 @@ jobs:
       - name: Install NPM dependencies
         run: npm ci
 
-      - name: Build Electron app (mac x64)
+      - name: Build Electron App (x64)
+        # --x64 dice a electron-builder di impacchettare per Intel
         run: npm run dist -- --mac --x64
 
-      - name: Upload artifacts (mac x64)
+      - name: Upload Artifacts (x64)
         uses: actions/upload-artifact@v4
         with:
-          name: Build-mac-x64
-          path: |
-            dist/**
-            backend/dist/**
+          name: GestioneAnalisi-Mac-Intel
+          path: dist/*.dmg

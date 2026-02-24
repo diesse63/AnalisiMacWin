@@ -8,7 +8,6 @@
     "dev": "electron .",
     "build-backend-win": "cd backend && build_exe.bat",
     "build-backend-unix": "cd backend && ./build_exe.sh",
-    "build-and-dist-win": "npm run build-backend-win && npm run dist",
     "dist": "electron-builder --publish never"
   },
   "devDependencies": {
@@ -32,27 +31,28 @@
     "extraResources": [
       {
         "from": "backend/dist",
-        "to": "backend/dist",
-        "filter": ["**/*"]
-      },
-      {
-        "from": "backend",
         "to": "backend",
-        "filter": ["api.exe"]
+        "filter": [
+          "api",
+          "api.exe"
+        ]
       }
     ],
     "publish": "never",
     "win": {
       "target": ["portable"]
     },
-    "compression": "store",
     "portable": {
       "artifactName": "${productName}_Portable_Win_${version}.${ext}",
       "requestExecutionLevel": "user"
     },
     "mac": {
       "target": ["dmg", "zip"],
-      "artifactName": "${productName}_Mac_${arch}_${version}.${ext}"
+      "artifactName": "${productName}_Mac_${arch}_${version}.${ext}",
+      "identity": null
+    },
+    "dmg": {
+      "writeUpdateInfo": false
     }
   }
 }
