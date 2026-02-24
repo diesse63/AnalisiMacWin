@@ -38,9 +38,11 @@
         "filter": ["api.exe"]
       }
     ],
+    "publish": "never",
     "win": {
-      "target": "portable"
+      "target": ["portable"]
     },
+    "compression": "store",
     "portable": {
       "artifactName": "${productName}_Portable_Win_${version}.${ext}",
       "requestExecutionLevel": "user"
