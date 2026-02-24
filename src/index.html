@@ -561,7 +561,35 @@
         let refertoSelezionato = null;
 
         // --- Caricamento iniziale ---
+        async function waitForBackend(timeoutMs = 20000, intervalMs = 700) {
+            const start = Date.now();
+            while (Date.now() - start < timeoutMs) {
+                try {
+                    const res = await fetch(`${API_URL}/referti`, { method: 'GET' });
+                    if (res.ok) return true;
+                } catch (e) {
+                    // backend non pronto ancora
+                }
+                await new Promise(r => setTimeout(r, intervalMs));
+            }
+            return false;
+        }
+
         window.onload = async function() {
+            const ready = await waitForBackend(20000, 700);
+            if (!ready) {
+                const retry = confirm('Errore: impossibile contattare il backend. Vuoi riprovare?');
+                if (retry) {
+                    // prova ancora ma con timeout maggiore
+                    const ok = await waitForBackend(60000, 1000);
+                    if (!ok) {
+                        alert('Backend non raggiungibile: controlla che api.exe sia presente ed avviato.');
+                        return;
+                    }
+                } else {
+                    return;
+                }
+            }
             await caricaRefertiMain();
         };
 
