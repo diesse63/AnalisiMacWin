@@ -1,4 +1,4 @@
-name: Build Mac (Intel & Silicon)
+name: Build Mac (Universal)
 
 on:
   workflow_dispatch:
@@ -6,89 +6,50 @@ on:
     branches: [ main ]
 
 jobs:
-  # ---------------------------------------------------
-  # BUILD PER MAC APPLE SILICON (M1/M2/M3) - ARM64
-  # ---------------------------------------------------
+  # BUILD PER MAC APPLE SILICON (M1/M2/M3)
   build-mac-arm64:
-    runs-on: macos-14 # Runner Apple Silicon nativo
+    name: Build Mac Apple Silicon
+    runs-on: macos-14
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
+      - run: |
           pip install -r backend/requirements.txt
           pip install pyinstaller
-
-      - name: Build Python backend (ARM64)
-        # Genera il file 'api' (senza .exe) in backend/dist
-        run: |
-          python -m PyInstaller --clean --noconfirm --onefile --name api api.py --distpath ../backend/dist --workpath ../backend/build
+      - run: python -m PyInstaller --clean --noconfirm --onefile --name api api.py --distpath ../backend/dist --workpath ../backend/build
         working-directory: backend
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Install NPM dependencies
-        run: npm ci
-
-      - name: Build Electron App (ARM64)
-        # --arm64 dice a electron-builder di impacchettare per Silicon
-        run: npm run dist -- --mac --arm64
-
-      - name: Upload Artifacts (ARM64)
-        uses: actions/upload-artifact@v4
+      - run: npm ci
+      - run: npm run dist -- --mac --arm64
+      - uses: actions/upload-artifact@v4
         with:
-          name: GestioneAnalisi-Mac-M1-M2
+          name: Mac-AppleSilicon-App
           path: dist/*.dmg
 
-  # ---------------------------------------------------
-  # BUILD PER MAC INTEL - x64
-  # ---------------------------------------------------
+  # BUILD PER MAC INTEL (x64)
   build-mac-x64:
-    runs-on: macos-13 # Runner Intel nativo
+    name: Build Mac Intel
+    runs-on: macos-12  # Usiamo macos-12 (Intel) per stabilità
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
+      - run: |
           pip install -r backend/requirements.txt
           pip install pyinstaller
-
-      - name: Build Python backend (x64)
-        run: |
-          python -m PyInstaller --clean --noconfirm --onefile --name api api.py --distpath ../backend/dist --workpath ../backend/build
+      - run: python -m PyInstaller --clean --noconfirm --onefile --name api api.py --distpath ../backend/dist --workpath ../backend/build
         working-directory: backend
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Install NPM dependencies
-        run: npm ci
-
-      - name: Build Electron App (x64)
-        # --x64 dice a electron-builder di impacchettare per Intel
-        run: npm run dist -- --mac --x64
-
-      - name: Upload Artifacts (x64)
-        uses: actions/upload-artifact@v4
+      - run: npm ci
+      - run: npm run dist -- --mac --x64
+      - uses: actions/upload-artifact@v4
         with:
-          name: GestioneAnalisi-Mac-Intel
+          name: Mac-Intel-App
           path: dist/*.dmg

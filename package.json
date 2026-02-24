@@ -7,13 +7,12 @@
   "scripts": {
     "dev": "electron .",
     "build-backend-win": "cd backend && build_exe.bat",
-    "build-backend-unix": "cd backend && ./build_exe.sh",
+    "build-backend-mac": "cd backend && python3 -m PyInstaller --clean --noconfirm --onefile --name api api.py --distpath ./dist --workpath ./build",
     "dist": "electron-builder --publish never"
   },
   "devDependencies": {
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.0",
-    "electron-publisher-never": "^1.0.0"
+    "electron-builder": "^24.9.0"
   },
   "dependencies": {
     "electron-context-menu": "^4.1.1"
@@ -39,13 +38,6 @@
       }
     ],
     "publish": "never",
-    "win": {
-      "target": ["portable"]
-    },
-    "portable": {
-      "artifactName": "${productName}_Portable_Win_${version}.${ext}",
-      "requestExecutionLevel": "user"
-    },
     "mac": {
       "target": ["dmg", "zip"],
       "artifactName": "${productName}_Mac_${arch}_${version}.${ext}",
@@ -53,6 +45,10 @@
     },
     "dmg": {
       "writeUpdateInfo": false
+    },
+    "win": {
+      "target": ["portable"],
+      "artifactName": "${productName}_Portable_Win_${version}.${ext}"
     }
   }
 }
