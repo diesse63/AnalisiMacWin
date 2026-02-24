@@ -13,7 +13,8 @@
   },
   "devDependencies": {
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.0"
+    "electron-builder": "^24.9.0",
+    "electron-publisher-never": "^1.0.0"
   },
   "dependencies": {
     "electron-context-menu": "^4.1.1"
