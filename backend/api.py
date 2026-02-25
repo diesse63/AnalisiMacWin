@@ -157,6 +157,102 @@ def get_grafico(id_referto):
     except Exception:
         return jsonify({"image": None})
 
+
+@app.route('/save_header', methods=['POST'])
+def save_header():
+    # Salva solo i dati generali del referto (testata) e il PDF inviato
+    if 'file' not in request.files:
+        return jsonify({"success": False, "message": "Nessun file inviato"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"success": False, "message": "Nome file vuoto"}), 400
+
+    temp_path = os.path.join(database.DB_FOLDER, "temp_header.pdf")
+    try:
+        file.save(temp_path)
+
+        # Lettura campi testata
+        paziente = request.form.get('paziente', '')
+        accettazione = request.form.get('accettazione', '')
+        data_ref = request.form.get('data', '')
+        note = request.form.get('note', '')
+        image_b64 = request.form.get('image', None)
+
+        acc_clean = accettazione.replace('/', '_') if accettazione else (str(int(os.times()[4])))
+        # Controllo duplicati
+        if accettazione and database.verifica_esistenza_referto(accettazione):
+            if os.path.exists(temp_path): os.remove(temp_path)
+            return jsonify({"success": False, "message": f"Referto N. {accettazione} già presente in archivio."})
+
+        final_pdf_name = f"{acc_clean}.pdf"
+        final_pdf_path = os.path.join(database.DB_FOLDER, final_pdf_name)
+        if os.path.exists(final_pdf_path):
+            os.remove(final_pdf_path)
+        os.replace(temp_path, final_pdf_path)
+
+        immagine_bytes = None
+        if image_b64:
+            try:
+                immagine_bytes = base64.b64decode(image_b64)
+            except Exception:
+                immagine_bytes = None
+
+        dati_testata = {'paziente': paziente, 'accettazione': accettazione, 'data': data_ref, 'note': note}
+        success, result = database.salva_testata(dati_testata, final_pdf_path, immagine_bytes)
+        if success:
+            return jsonify({"success": True, "id_referto": result})
+        else:
+            return jsonify({"success": False, "message": result})
+
+    except Exception as e:
+        if os.path.exists(temp_path):
+            try: os.remove(temp_path)
+            except: pass
+        return jsonify({"success": False, "message": f"Errore server: {str(e)}"}), 500
+
+
+@app.route('/risultato', methods=['POST'])
+def save_risultato():
+    try:
+        data = request.get_json()
+        id_referto = int(data.get('id_referto'))
+        riga = data.get('riga')
+        success, res = database.salva_risultato(id_referto, riga)
+        if success:
+            return jsonify({"success": True, "id_risultato": res})
+        else:
+            return jsonify({"success": False, "message": res})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/risultato/<int:id_risultato>', methods=['DELETE'])
+def delete_risultato(id_risultato):
+    try:
+        success, msg = database.cancella_risultato(id_risultato)
+        return jsonify({"success": success, "message": msg})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/grafico', methods=['POST'])
+def save_grafico():
+    try:
+        data = request.get_json()
+        id_referto = int(data.get('id_referto'))
+        image_b64 = data.get('image')
+        if not image_b64:
+            return jsonify({"success": False, "message": "Immagine mancante"}), 400
+        img_bytes = base64.b64decode(image_b64)
+        conn = database.get_db_connection()
+        c = conn.cursor()
+        c.execute("INSERT INTO grafici (id_referto, tipo_grafico, immagine) VALUES (?, ?, ?)", (id_referto, 'ELETTROFORESI', img_bytes))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route('/upload_preview', methods=['POST'])
 def upload_preview():
     if 'file' not in request.files:

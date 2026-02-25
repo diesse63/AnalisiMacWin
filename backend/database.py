@@ -134,6 +134,59 @@ def cancella_referto_completo(id_referto):
     finally:
         conn.close()
 
+
+def salva_testata(dati_testata, percorso_pdf_finale, immagine_grafico=None):
+    """
+    Salva solo la testata del referto (senza risultati). Restituisce (True, id_referto) oppure (False, msg)
+    """
+    conn = get_db_connection()
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO referti (nome_paziente, note, data_referto, numero_accettazione, file_path) VALUES (?, ?, ?, ?, ?)",
+                  (dati_testata.get('paziente', ''), dati_testata.get('note', ''), dati_testata.get('data', ''), dati_testata.get('accettazione', ''), percorso_pdf_finale))
+        id_referto = c.lastrowid
+        if immagine_grafico:
+            c.execute("INSERT INTO grafici (id_referto, tipo_grafico, immagine) VALUES (?, ?, ?)",
+                      (id_referto, "ELETTROFORESI", immagine_grafico))
+        conn.commit()
+        return True, id_referto
+    except sqlite3.IntegrityError:
+        return False, f"Referto N. {dati_testata.get('accettazione')} già presente."
+    except Exception as e:
+        return False, f"Errore DB: {str(e)}"
+    finally:
+        conn.close()
+
+
+def salva_risultato(id_referto, riga):
+    """Salva una singola riga risultato per un referto esistente. Restituisce (True, id_risultato) o (False, msg)"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    try:
+        c.execute('''INSERT INTO risultati (id_referto, nome_esame, risultato, unita_misura, riferimento, anomalia)
+                     VALUES (?, ?, ?, ?, ?, ?)''',
+                  (id_referto, riga.get('esame', ''), riga.get('risultato', ''), riga.get('um', ''), riga.get('rif', ''), int(riga.get('anomalia', 0))))
+        id_ris = c.lastrowid
+        conn.commit()
+        return True, id_ris
+    except Exception as e:
+        return False, str(e)
+    finally:
+        conn.close()
+
+
+def cancella_risultato(id_risultato):
+    conn = get_db_connection()
+    c = conn.cursor()
+    try:
+        c.execute("DELETE FROM risultati WHERE id = ?", (id_risultato,))
+        conn.commit()
+        return True, "Risultato eliminato"
+    except Exception as e:
+        return False, str(e)
+    finally:
+        conn.close()
+
 def verifica_esistenza_referto(numero_accettazione):
     conn = get_db_connection()
     c = conn.cursor()

@@ -122,17 +122,31 @@
         </fieldset>
     <div id="uploadPanel" class="upload-panel" style="display:none;z-index:2000;">
         <div class="upload-panel-header">
-            <h2>Nuovo Referto</h2>
-            <button id="chiudiUploadPanelBtn" onclick="toggleUploadPanel()">Chiudi</button>
+            <h2 id="uploadPanelTitle" contenteditable="true">Nuovo Referto</h2>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button id="saveHeaderBtn" style="display:none;" onclick="salvaDatiGenerali()">Salva i dati generali del referto</button>
+                <button id="chiudiUploadPanelBtn" onclick="toggleUploadPanel()">Chiudi</button>
+            </div>
         </div>
         <div id="acquisizioneHeader" style="margin-bottom:20px; display:none;">
-            <b>Paziente:</b> <span id="acqPaziente"></span> &nbsp;|
-            <b>Numero Referto:</b> <span id="acqNumero"></span> &nbsp;|
-            <b>Data Referto:</b> <span id="acqData"></span> &nbsp;|
-            <b>Note:</b> <input id="acqNote" type="text" style="width:300px;">
+            <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+                <label style="margin-right:8px; display:flex; align-items:center;"><b style="margin-right:6px;">Paziente:</b>
+                    <input id="acqPaziente" type="text" style="width:220px;">
+                </label>
+                <label style="margin-right:8px; display:flex; align-items:center;"><b style="margin-right:6px;">Numero Referto:</b>
+                    <input id="acqNumero" type="text" style="width:120px;">
+                </label>
+                <label style="margin-right:8px; display:flex; align-items:center;"><b style="margin-right:6px;">Data Referto:</b>
+                    <input id="acqData" type="text" style="width:120px;">
+                </label>
+            </div>
+            <div style="margin-top:4px;">
+                <label style="display:block;"><b>Note:</b></label>
+                <input id="acqNote" type="text" style="width:100%; max-width:720px;">
+            </div>
         </div>
         <input type="file" id="pdfInput" accept="application/pdf">
-        <button onclick="uploadFile()">Carica PDF</button>
+        <button id="uploadAnalyzeBtn" onclick="uploadFile()">Carica e Analizza</button>
         <span id="statusMsg" style="margin-left:10px;color:#888"></span>
         <div id="tempTableSection" style="display:none;margin-top:20px">
             <h3>Tabella dati estratti</h3>
@@ -154,7 +168,9 @@
                 </thead>
                 <tbody></tbody>
             </table>
-            <button id="saveTempBtn" style="margin-top:20px;display:none;" onclick="confermaInserimento()">Salva Modifiche</button>
+            <div style="margin-top:12px;">
+                <span id="guideMsg" style="margin-left:12px;color:#666"></span>
+            </div>
         </div>
         <div id="graficoPreviewAcquisizione" style="margin-top:20px"></div>
     </div>
@@ -195,7 +211,7 @@
     <script>
                 // Collega visibilità uploadPanel al bottone "Nuovo Referto" in main
 
-                function toggleUploadPanel() {
+                async function toggleUploadPanel() {
                     const uploadPanel = document.getElementById('uploadPanel');
                     const openUploadBtn = document.getElementById('openUploadBtn');
                     if (uploadPanel.style.display === 'none' || uploadPanel.style.display === '') {
@@ -204,6 +220,37 @@
                     } else {
                         uploadPanel.style.display = 'none';
                         openUploadBtn.textContent = 'Nuovo Referto';
+                        // Pulisce lo stato di acquisizione temporaneo
+                        try { resetAcquisizioneState(); } catch (e) { console.warn('Errore pulizia stato acquisizione', e); }
+                        // Dopo la chiusura del pannello di acquisizione, aggiorna la vista principale
+                        try {
+                            await caricaRefertiMain();
+                        } catch (e) {
+                            console.warn('Impossibile aggiornare i referti dopo chiusura acquisizione', e);
+                        }
+                    }
+                }
+
+                function resetAcquisizioneState() {
+                    try {
+                        datiTemporanei = null;
+                        ultimoFile = null;
+                        anteprimaGraficoAcquisizione = null;
+                        window.righeTabellaTemporanea = [];
+                        window.currentSavedRefertoId = null;
+                        const tempSec = document.getElementById('tempTableSection'); if (tempSec) tempSec.style.display = 'none';
+                        const graf = document.getElementById('graficoPreviewAcquisizione'); if (graf) graf.innerHTML = '';
+                        const acqP = document.getElementById('acqPaziente'); if (acqP) { acqP.value=''; acqP.readOnly = false; }
+                        const acqN = document.getElementById('acqNumero'); if (acqN) { acqN.value=''; acqN.readOnly = false; }
+                        const acqD = document.getElementById('acqData'); if (acqD) { acqD.value=''; acqD.readOnly = false; }
+                        const acqNoteEl = document.getElementById('acqNote'); if (acqNoteEl) { acqNoteEl.value=''; acqNoteEl.readOnly = false; }
+                        const pdfInput = document.getElementById('pdfInput'); if (pdfInput) { try { pdfInput.value = ''; } catch(e){} pdfInput.disabled = false; }
+                        const sb = document.getElementById('saveHeaderBtn'); if (sb) sb.style.display = 'none';
+                        const status = document.getElementById('statusMsg'); if (status) status.innerText = '';
+                        try { mostraTabellaTemporanea(); } catch (e) {}
+                        try { mostraGraficoPreviewAcquisizione(null); } catch (e) {}
+                    } catch (e) {
+                        console.warn('resetAcquisizioneState error', e);
                     }
                 }
                 window.toggleUploadPanel = toggleUploadPanel;
@@ -254,9 +301,10 @@
                                     <option value="1" ${row.anomalia == 1 ? 'selected' : ''}>🔴</option>
                                 </select>
                             </td>
-                            <td style="text-align:center;">
-                                <button onclick="cancellaRigaTempGlobal(${row._rowid})">Elimina</button>
-                            </td>
+                                    <td style="text-align:center;">
+                                        <!-- Azioni: vuoto finché non viene salvata la testata -->
+                                
+                                    </td>
                         `;
                         // Menu contestuale tasto destro SOLO per la tabella provvisoria
                         tr.oncontextmenu = function(e) {
@@ -274,11 +322,38 @@
                             menu.style.border = '1px solid #888';
                             menu.style.zIndex = 9999;
                             menu.style.boxShadow = '0 2px 8px #0003';
-                            menu.innerHTML = `
-                                <div style="padding:8px;cursor:pointer;" onclick="mostraStoricoEsame('${row.esame.replace(/'/g, "\\'")}', '${row.paziente ? row.paziente.replace(/'/g, "\\'") : ''}', '${row.um.replace(/'/g, "\\'")}' );this.parentNode.remove();">Storico esame</div>
-                                <div style="padding:8px;cursor:pointer;" onclick="cancellaRigaTempGlobal(${row._rowid});this.parentNode.remove();">Elimina riga</div>
-                                <div style="padding:8px;cursor:pointer;" onclick="aggiornaCampoTempGlobal(${row._rowid}, 'anomalia', ${row.anomalia == 0 ? 1 : 0});this.parentNode.remove();">Cambia semaforo</div>
-                            `;
+                            // Helper per aggiungere voci al menu
+                            const addItem = (text, handler) => {
+                                const d = document.createElement('div');
+                                d.style.padding = '8px';
+                                d.style.cursor = 'pointer';
+                                d.innerText = text;
+                                d.onclick = function() { handler(); menu.remove(); };
+                                menu.appendChild(d);
+                            };
+                            // Operazioni su campo della riga (primo input/textarea presente)
+                            addItem('Taglia', () => {
+                                const input = tr.querySelector('input,textarea');
+                                if (input) { input.select(); document.execCommand('cut'); }
+                            });
+                            addItem('Copia', () => {
+                                const input = tr.querySelector('input,textarea');
+                                if (input) { input.select(); document.execCommand('copy'); }
+                            });
+                            addItem('Incolla', () => {
+                                const input = tr.querySelector('input,textarea');
+                                if (input) { input.focus(); document.execCommand('paste'); }
+                            });
+                            addItem('Seleziona tutto', () => {
+                                const input = tr.querySelector('input,textarea');
+                                if (input) { input.select(); } else { document.execCommand('selectAll'); }
+                            });
+                            // Voci esistenti
+                            addItem('Storico esame', () => {
+                                mostraStoricoEsame(row.esame.replace(/'/g, "\\'"), (row.paziente ? row.paziente.replace(/'/g, "\\'") : ''), row.um.replace(/'/g, "\\'"));
+                            });
+                            addItem('Elimina riga', () => { cancellaRigaTempGlobal(row._rowid); });
+                            addItem('Cambia semaforo', () => { aggiornaCampoTempGlobal(row._rowid, 'anomalia', row.anomalia == 0 ? 1 : 0); });
                             document.body.appendChild(menu);
                             // Chiudi menu al click fuori
                             document.addEventListener('mousedown', function handler(ev) {
@@ -288,20 +363,24 @@
                         tbody.appendChild(tr);
                     });
                     section.style.display = 'block';
-                    let saveBtn = document.getElementById('saveTempBtn');
-                    if (filtro === 'tutte') {
-                        if (!saveBtn) {
-                            saveBtn = document.createElement('button');
-                            saveBtn.id = 'saveTempBtn';
-                            saveBtn.innerText = 'Salva Modifiche';
-                            saveBtn.style.marginTop = '20px';
-                            saveBtn.onclick = () => confermaInserimento();
-                            section.appendChild(saveBtn);
-                        } else {
-                            saveBtn.style.display = 'inline-block';
-                        }
-                    } else if (saveBtn) {
-                        saveBtn.style.display = 'none';
+                    // Non creare il bottone globale "Salva Modifiche" qui.
+                    // Se la testata è stata salvata, mostra bottoni Azione per ogni riga
+                    if (window.currentSavedRefertoId) {
+                        const rows = document.querySelectorAll('#tempTable tbody tr');
+                        rows.forEach(tr => {
+                            const idxInput = tr.querySelector('input');
+                            // Recupera rowid dal onchange handlers che usano _rowid nel DOM: estrai dal onchange chiamato
+                            // Alternativa: cicla righeTabellaTemporanea e confronta esame+valore
+                            const tds = tr.querySelectorAll('td');
+                            const esame = tds[0].querySelector('input').value;
+                            const risultato = tds[1].querySelector('input').value;
+                            // Trova la riga corrispondente in righeTabellaTemporanea
+                            const found = window.righeTabellaTemporanea.find(r => r.esame === esame && String(r.risultato) === String(risultato));
+                            const actionTd = tds[5];
+                            if (found) {
+                                actionTd.innerHTML = `<button onclick="salvaRigaSingola(${found._rowid})">Salva</button> <button onclick="cancellaRigaTempGlobal(${found._rowid})">Elimina</button>`;
+                            }
+                        });
                     }
                 }
         // --- Stato acquisizione ---
@@ -334,6 +413,8 @@
                             document.getElementById('tempTableSection').style.display = 'none';
                             document.getElementById('graficoPreviewAcquisizione').innerHTML = '';
                             document.getElementById('acquisizioneHeader').style.display = 'none';
+                            const sb = document.getElementById('saveHeaderBtn'); if (sb) sb.style.display = 'none';
+                            const gm = document.getElementById('guideMsg'); if (gm) gm.innerText = '';
                             return;
                         }
                     }
@@ -353,6 +434,8 @@
                 } else {
                     document.getElementById('statusMsg').innerText = data.message || 'Errore estrazione dati.';
                     document.getElementById('acquisizioneHeader').style.display = 'none';
+                    const sb = document.getElementById('saveHeaderBtn'); if (sb) sb.style.display = 'none';
+                    const gm = document.getElementById('guideMsg'); if (gm) gm.innerText = '';
                 }
             } catch (e) {
                 alert("Errore connessione server: " + e);
@@ -390,11 +473,20 @@
                         }
                     }
                     // Popola intestazione con i dati estratti
-                    document.getElementById('acqPaziente').textContent = data.metadata && data.metadata.paziente ? data.metadata.paziente : '';
-                    document.getElementById('acqNumero').textContent = data.metadata && data.metadata.accettazione ? data.metadata.accettazione : '';
-                    document.getElementById('acqData').textContent = data.metadata && data.metadata.data ? data.metadata.data : '';
-                    document.getElementById('acqNote').value = data.metadata && data.metadata.note ? data.metadata.note : '';
+                    // Popola i campi editabili dell'intestazione
+                    const acqPaz = document.getElementById('acqPaziente');
+                    const acqNum = document.getElementById('acqNumero');
+                    const acqDat = document.getElementById('acqData');
+                    const acqNot = document.getElementById('acqNote');
+                    if (acqPaz) { acqPaz.value = data.metadata && data.metadata.paziente ? data.metadata.paziente : ''; acqPaz.readOnly = false; }
+                    if (acqNum) { acqNum.value = data.metadata && data.metadata.accettazione ? data.metadata.accettazione : ''; acqNum.readOnly = false; }
+                    if (acqDat) { acqDat.value = data.metadata && data.metadata.data ? data.metadata.data : ''; acqDat.readOnly = false; }
+                    if (acqNot) { acqNot.value = data.metadata && data.metadata.note ? data.metadata.note : ''; acqNot.readOnly = false; }
+                    // Assicura che sia possibile selezionare un nuovo PDF
+                    const pdfInputEl = document.getElementById('pdfInput'); if (pdfInputEl) pdfInputEl.disabled = false;
                     document.getElementById('acquisizioneHeader').style.display = 'block';
+                    const sb = document.getElementById('saveHeaderBtn'); if (sb) sb.style.display = 'inline-block';
+                    const gm = document.getElementById('guideMsg'); if (gm) gm.innerText = 'Modifica/Salva i dati del referto. Poi Conferma/Elimina singolarmente gli esami';
                     datiTemporanei = data.dati;
                     // --- Inizializza righeTabellaTemporanea con _rowid univoco ---
                     window.righeTabellaTemporanea = data.dati.map((r, idx) => ({...r, _rowid: idx + Math.floor(Math.random()*1000000)}));
@@ -465,41 +557,8 @@
             }
         }
 
-        async function confermaInserimento() {
-            if (!window.righeTabellaTemporanea || !ultimoFile) return;
-            let datiDaSalvare = window.righeTabellaTemporanea;
-            if (!datiDaSalvare || datiDaSalvare.length === 0) {
-                alert('Nessuna riga da archiviare.');
-                return;
-            }
-            const formData = new FormData();
-            formData.append('file', ultimoFile);
-            formData.append('righe', JSON.stringify(datiDaSalvare));
-            const noteVal = document.getElementById('acqNote').value || '';
-            formData.append('note', noteVal);
-            try {
-                document.getElementById('statusMsg').innerText = 'Inserimento in corso...';
-                const res = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
-                const data = await res.json();
-                if (data.success) {
-                    document.getElementById('statusMsg').innerText = 'Referto inserito con successo.';
-                    datiTemporanei = null;
-                    ultimoFile = null;
-                    anteprimaGraficoAcquisizione = null;
-                    document.getElementById('tempTableSection').style.display = 'none';
-                    document.getElementById('graficoPreviewAcquisizione').innerHTML = '';
-                    document.getElementById('acquisizioneHeader').style.display = 'none';
-                    await caricaRefertiMain(); // Aggiorna dropdown
-                } else {
-                    document.getElementById('statusMsg').innerText = data.message || 'Errore inserimento.';
-                    if (data.message && data.message.includes('già presente')) {
-                        alert(data.message);
-                    }
-                }
-            } catch (e) {
-                alert('Errore inserimento: ' + e);
-            }
-        }
+        // La funzione globale di conferma inserimento è stata rimossa;
+        // i salvataggi verranno eseguiti riga per riga dopo il salvataggio della testata.
 
         window.cancellaRigaTemp = function(idx) {
             if (!datiTemporanei) return;
@@ -513,8 +572,13 @@
                 }
                 window.apriGestioneReferti = apriGestioneReferti;
 
-                function chiudiGestioneReferti() {
+                async function chiudiGestioneReferti() {
                     document.getElementById('gestioneRefertiPanel').style.display = 'none';
+                    try {
+                        await caricaRefertiMain();
+                    } catch (e) {
+                        console.warn('Impossibile aggiornare i referti dopo chiusura gestione', e);
+                    }
                 }
                 window.chiudiGestioneReferti = chiudiGestioneReferti;
 
@@ -852,11 +916,102 @@
             const div = document.getElementById('graficoPreviewAcquisizione');
             if (imgB64) {
                 div.innerHTML = `<img src="data:image/png;base64,${imgB64}" style="max-width:400px;max-height:250px;border:1px solid #aaa;box-shadow:0 2px 8px #0002;">`;
+                // Se la testata è già stata salvata mostra bottoni Salva/Elimina per il grafico
+                if (window.currentSavedRefertoId) {
+                    const controls = document.createElement('div');
+                    controls.style.marginTop = '8px';
+                    controls.innerHTML = `<button onclick="salvaGrafico()">Salva grafico</button> <button onclick="(function(){ anteprimaGraficoAcquisizione=null; mostraGraficoPreviewAcquisizione(null); document.getElementById('statusMsg').innerText='Anteprima grafico eliminata'; })()">Elimina grafico</button>`;
+                    div.appendChild(controls);
+                }
             } else {
                 div.innerHTML = '';
             }
         }
         window.mostraGraficoPreviewAcquisizione = mostraGraficoPreviewAcquisizione;
+
+        async function salvaDatiGenerali() {
+            // Salva solo la testata del referto (invia anche il file PDF selezionato)
+            const input = document.getElementById('pdfInput');
+            if (!input || input.files.length === 0) return alert('Seleziona il file prima di salvare la testata.');
+            const formData = new FormData();
+            formData.append('file', input.files[0]);
+            formData.append('paziente', document.getElementById('acqPaziente').value || '');
+            formData.append('accettazione', document.getElementById('acqNumero').value || '');
+            formData.append('data', document.getElementById('acqData').value || '');
+            formData.append('note', document.getElementById('acqNote').value || '');
+            if (anteprimaGraficoAcquisizione) formData.append('image', anteprimaGraficoAcquisizione);
+            try {
+                document.getElementById('statusMsg').innerText = 'Salvataggio dati generali in corso...';
+                const res = await fetch(`${API_URL}/save_header`, { method: 'POST', body: formData });
+                const data = await res.json();
+                    if (data.success) {
+                    window.currentSavedRefertoId = data.id_referto;
+                    document.getElementById('statusMsg').innerText = 'Dati generali salvati. Ora puoi salvare o eliminare le singole righe.';
+                    const sb = document.getElementById('saveHeaderBtn'); if (sb) sb.style.display = 'none';
+                    const gm = document.getElementById('guideMsg'); if (gm) gm.innerText = '';
+                    // Rendi i campi header non editabili
+                    const acqP = document.getElementById('acqPaziente'); if (acqP) acqP.readOnly = true;
+                    const acqN = document.getElementById('acqNumero'); if (acqN) acqN.readOnly = true;
+                    const acqD = document.getElementById('acqData'); if (acqD) acqD.readOnly = true;
+                    const acqNoteEl = document.getElementById('acqNote'); if (acqNoteEl) acqNoteEl.readOnly = true;
+                    const pdfIn = document.getElementById('pdfInput'); if (pdfIn) pdfIn.disabled = true;
+                    // Mostra bottoni azione nelle righe
+                    mostraTabellaTemporanea();
+                    // Aggiorna preview grafico per mostrare i bottoni Salva/Elimina
+                    mostraGraficoPreviewAcquisizione(anteprimaGraficoAcquisizione);
+                    // Aggiorna elenco referti
+                    await caricaRefertiMain();
+                } else {
+                    alert(data.message || 'Errore salvataggio testata');
+                    document.getElementById('statusMsg').innerText = data.message || 'Errore salvataggio testata';
+                }
+            } catch (e) {
+                alert('Errore salvataggio testata: ' + e);
+            }
+        }
+
+        async function salvaRigaSingola(rowid) {
+            if (!window.currentSavedRefertoId) return alert('Salva prima i dati generali del referto.');
+            const idx = window.righeTabellaTemporanea.findIndex(r => r._rowid === rowid);
+            if (idx === -1) return;
+            const riga = window.righeTabellaTemporanea[idx];
+            try {
+                document.getElementById('statusMsg').innerText = 'Salvataggio riga in corso...';
+                const res = await fetch(`${API_URL}/risultato`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id_referto: window.currentSavedRefertoId, riga }) });
+                const data = await res.json();
+                if (data.success) {
+                    // Rimuovi riga dalla tabella temporanea
+                    window.righeTabellaTemporanea.splice(idx, 1);
+                    mostraTabellaTemporanea();
+                    document.getElementById('statusMsg').innerText = 'Riga salvata.';
+                } else {
+                    alert(data.message || 'Errore salvataggio riga');
+                    document.getElementById('statusMsg').innerText = data.message || 'Errore salvataggio riga';
+                }
+            } catch (e) {
+                alert('Errore salvataggio riga: ' + e);
+            }
+        }
+
+        async function salvaGrafico() {
+            if (!window.currentSavedRefertoId) return alert('Salva prima i dati generali del referto.');
+            if (!anteprimaGraficoAcquisizione) return alert('Nessun grafico disponibile.');
+            try {
+                document.getElementById('statusMsg').innerText = 'Salvataggio grafico in corso...';
+                const res = await fetch(`${API_URL}/grafico`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id_referto: window.currentSavedRefertoId, image: anteprimaGraficoAcquisizione }) });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('statusMsg').innerText = 'Grafico salvato.';
+                    // Nascondi preview
+                    anteprimaGraficoAcquisizione = null;
+                    mostraGraficoPreviewAcquisizione(null);
+                } else {
+                    alert(data.message || 'Errore salvataggio grafico');
+                }
+            } catch (e) {
+                alert('Errore salvataggio grafico: ' + e);
+            }
+        }
 
         // Storico risultati esame per paziente
         function mostraStoricoEsame(nomeEsame, paziente, um) {
