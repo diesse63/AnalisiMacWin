@@ -78,6 +78,18 @@
                 <label>Data Referto:
                     <select id="dropdownDateReferti"></select>
                 </label>
+                <label>Filtro esami:
+                    <select id="dropdownFiltroEsami">
+                        <option value="tutti">Tutti</option>
+                        <option value="anomali">Solo anomali</option>
+                        <option value="normali">Solo normali</option>
+                    </select>
+                </label>
+                <label>Nome Esame:
+                    <select id="dropdownNomeEsami">
+                        <option value="tutti">Tutti</option>
+                    </select>
+                </label>
             </div>
             <div style="margin-bottom:15px;">
                 <span>Numero Referto: <span id="labelNumeroReferto"></span></span>
@@ -222,7 +234,7 @@
                     datiFiltrati.forEach((row, i) => {
                         const tr = document.createElement('tr');
                         if (!row.archiviato) tr.classList.add('not-archived-row');
-                        const semaforo = row.anomalia == 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
+                        const semaforo = getAnomaliaVal(row) === 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
                         tr.innerHTML = `
                             <td style="text-align:left; min-width:120px; max-width:220px;">
                                 <input type="text" value="${row.esame}" style="width:98%; min-width:100px; max-width:210px;" onchange="aggiornaCampoTempGlobal(${row._rowid}, 'esame', this.value)">
@@ -560,6 +572,44 @@
         let refertiPerPaziente = {};
         let refertoSelezionato = null;
 
+        // Restituisce 0 se nel range (normale), 1 se anomalo.
+        function getAnomaliaVal(r) {
+            if (!r) return 1;
+            // Se campo anomalia presente e significativo
+            if (r.anomalia !== undefined && r.anomalia !== null && r.anomalia !== '') {
+                const a = r.anomalia;
+                if (typeof a === 'number') return a === 0 ? 0 : 1;
+                if (typeof a === 'boolean') return a ? 1 : 0;
+                if (typeof a === 'string') {
+                    const lower = a.trim().toLowerCase();
+                    if (lower === '0' || lower === 'false') return 0;
+                    if (lower === '1' || lower === 'true') return 1;
+                    const pi = parseFloat(lower.replace(',', '.'));
+                    if (!isNaN(pi)) return pi === 0 ? 0 : 1;
+                }
+            }
+            // Altrimenti prova a derivare dall'intervallo di riferimento e dal valore
+            try {
+                const rif = r.rif;
+                const valore = r.risultato;
+                if (rif && /^\[(\d+[\.,]?\d*)-(\d+[\.,]?\d*)\]$/.test(rif) && valore !== undefined && valore !== null && String(valore).trim() !== '') {
+                    const match = rif.match(/^\[(\d+[\.,]?\d*)-(\d+[\.,]?\d*)\]$/);
+                    if (match) {
+                        const min = parseFloat(match[1].replace(',', '.'));
+                        const max = parseFloat(match[2].replace(',', '.'));
+                        const val = parseFloat(String(valore).replace(',', '.'));
+                        if (!isNaN(val) && !isNaN(min) && !isNaN(max)) {
+                            return (min <= val && val <= max) ? 0 : 1;
+                        }
+                    }
+                }
+            } catch (e) {
+                // ignore
+            }
+            // Default: considera anomalo per coerenza con il semaforo mostrato quando anomalia mancante
+            return 1;
+        }
+
         // --- Caricamento iniziale ---
         async function waitForBackend(timeoutMs = 20000, intervalMs = 700) {
             const start = Date.now();
@@ -599,6 +649,8 @@
                 referti = await res.json();
                 // Estrai pazienti unici
                 pazienti = [...new Set(referti.map(r => r.paziente))].filter(p => p);
+                // Estrai nomi esami unici
+                const nomiEsami = [...new Set(referti.map(r => r.esame))].filter(e => e);
                 // Raggruppa referti per paziente
                 refertiPerPaziente = {};
                 referti.forEach(r => {
@@ -606,9 +658,27 @@
                     refertiPerPaziente[r.paziente].push(r);
                 });
                 popolaDropdownPazienti();
+                popolaDropdownEsami(nomiEsami);
             } catch (e) {
                 alert('Errore caricamento referti: ' + e);
             }
+        }
+
+        function popolaDropdownEsami(nomiEsami) {
+            const dropdown = document.getElementById('dropdownNomeEsami');
+            if (!dropdown) return;
+            dropdown.innerHTML = '';
+            const optAll = document.createElement('option');
+            optAll.value = 'tutti';
+            optAll.textContent = 'Tutti';
+            dropdown.appendChild(optAll);
+            nomiEsami.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e;
+                opt.textContent = e;
+                dropdown.appendChild(opt);
+            });
+            dropdown.onchange = aggiornaVistaReferto;
         }
 
         function popolaDropdownPazienti() {
@@ -681,7 +751,29 @@
             const tbody = document.querySelector('#tabellaEsami tbody');
             tbody.innerHTML = '';
             // Filtra esami relativi a questo referto
-            const esami = referti.filter(r => r.accettazione === refertoSelezionato.accettazione);
+            let esami = referti.filter(r => r.accettazione === refertoSelezionato.accettazione);
+            // Applica filtro per nome esame se selezionato
+            try {
+                const filtroNomeElem = document.getElementById('dropdownNomeEsami');
+                const nomeSelezionato = filtroNomeElem ? filtroNomeElem.value : 'tutti';
+                if (nomeSelezionato && nomeSelezionato !== 'tutti') {
+                    esami = esami.filter(r => r.esame === nomeSelezionato);
+                }
+            } catch (e) {}
+            // Applica filtro dropdown (tutti / anomali / normali)
+            try {
+                const filtroElem = document.getElementById('dropdownFiltroEsami');
+                const filtroVal = filtroElem ? filtroElem.value : 'tutti';
+                if (filtroVal === 'anomali') {
+                    esami = esami.filter(r => getAnomaliaVal(r) === 1);
+                } else if (filtroVal === 'normali') {
+                    esami = esami.filter(r => getAnomaliaVal(r) === 0);
+                }
+                // Assicura che il cambio filtro ricarichi la vista
+                if (filtroElem) filtroElem.onchange = aggiornaVistaReferto;
+            } catch (e) {
+                // se qualcosa va storto, mostra comunque tutti gli esami
+            }
             // Trova referto precedente per stesso paziente e esame
             let refertiPaz = refertiPerPaziente[refertoSelezionato.paziente] || [];
             // Ordina per data decrescente
@@ -707,7 +799,7 @@
                     valorePrecedente = refertiPrecedenti[0].risultato;
                 }
                 const tr = document.createElement('tr');
-                const semaforo = r.anomalia == 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
+                const semaforo = getAnomaliaVal(r) === 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
                 tr.innerHTML = `
                     <td style="text-align:left;">${r.esame}</td>
                     <td style="text-align:center;">${r.risultato}</td>
@@ -782,7 +874,7 @@
             storico = storico.sort((a, b) => parseData(b.data) - parseData(a.data));
             let html = `<b>Storico risultati per:</b> ${nomeEsame} (${um})<br><table style='width:100%;margin-top:8px'><tr><th style='text-align:left;'>Data</th><th style='text-align:center;'>Risultato</th><th style='text-align:center;'>UM</th><th style='text-align:center;'>Valori di riferimento</th><th style='text-align:center;'>Semaforo</th></tr>`;
             storico.forEach(r => {
-                const semaforo = r.anomalia == 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
+                const semaforo = getAnomaliaVal(r) === 0 ? '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#2ecc40;border:1px solid #222;"></span>' : '<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#ff4136;border:1px solid #222;"></span>';
                 html += `<tr><td style='text-align:left;'>${r.data}</td><td style='text-align:center;'>${r.risultato}</td><td style='text-align:center;'>${r.um}</td><td style='text-align:center;'>${r.rif || ''}</td><td style='text-align:center;'>${semaforo}</td></tr>`;
             });
             html += '</table>';
